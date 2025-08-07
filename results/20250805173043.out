@@ -1,0 +1,279 @@
+=== GAUSSIAN CURRICULUM CONFIGURATION ===
+Time Flow (TF):
+  TF rate: 0.05 (curriculum speed)
+
+Complexity Flow (CF):
+  CF variance: 1.5 (complexity spread)
+  Counting complexity range: 2.0 -> 12.0
+  Addition complexity range: 2.0 -> 10.0
+
+Complexity (CX):
+  CX variance: 0.8 (problem variation)
+
+Training schedule:
+  Total epochs: 100
+  Counting focus epochs: 60
+  Addition starts at epoch: 30
+  Counting fade rate: 0.02
+
+=== Small Math Model with Gaussian Curriculum ===
+Network: 12 -> 64 -> 12
+Initial learning rate: 0.02
+Initial confidence criterion: 0.9
+
+Generated problem sets:
+  Counting problems: 15
+  Addition problems: 25
+
+Complexity ranges:
+  Counting: 2 to 12
+  Addition: 2 to 10
+
+Example problems by complexity:
+  Complexity 3:
+    Counting: 2 -> ? -> 3
+    Addition: 1 + 2 -> 3
+  Complexity 6:
+    Counting: 5 -> ? -> 6
+    Addition: 1 + 5 -> 6
+  Complexity 9:
+    Counting: 5 -> ? -> 9
+    Addition: 4 + 5 -> 9
+  Complexity 12:
+    Counting: 5 -> ? -> 12
+
+=== TESTING BEFORE TRAINING ===
+
+--- Testing Model ---
+1 -> ? = 10 (expected 2) ✗ conf:0.001 finger:True
+3 -> ? = 5 (expected 4) ✗ conf:0.001 finger:True
+5 -> ? = 10 (expected 6) ✗ conf:0.001 finger:True
+2 -> 3 = 7 (expected 3) ✗ conf:0.002 finger:True
+4 -> 5 = 4 (expected 5) ✗ conf:0.001 finger:True
+1 + 2 = 6 (expected 3) ✗ conf:0.001 finger:True
+2 + 2 = 1 (expected 4) ✗ conf:0.002 finger:True
+3 + 4 = 7 (expected 7) ✓ conf:0.001 finger:True
+4 + 5 = 7 (expected 9) ✗ conf:0.001 finger:True
+5 + 5 = 7 (expected 10) ✗ conf:0.001 finger:True
+
+=== GAUSSIAN CURRICULUM TRAINING (100 epochs) ===
+Format: Epoch TF=time_flow Count(μ=cf_mean,σ=cx_sample,w=weight) Add(μ=cf_mean,σ=cx_sample,w=weight)
+
+Epoch   0: TF=0.000 Count(μ=2.0,σ=3.1,w=1.00) Add(μ=2.0,σ=2.1,w=0.00) Loss=2.577905 LR=0.0199 CC=0.898
+Epoch   1: TF=0.050 Count(μ=2.5,σ=2.0,w=1.00) Add(μ=2.4,σ=3.5,w=0.00) Loss=2.547667 LR=0.0198 CC=0.896
+Epoch   2: TF=0.100 Count(μ=3.0,σ=2.1,w=1.00) Add(μ=2.8,σ=3.7,w=0.00) Loss=2.513179 LR=0.0197 CC=0.895
+Epoch   3: TF=0.150 Count(μ=3.5,σ=2.3,w=1.00) Add(μ=3.2,σ=4.5,w=0.00) Loss=2.522316 LR=0.0196 CC=0.893
+Epoch   4: TF=0.200 Count(μ=4.0,σ=4.7,w=1.00) Add(μ=3.6,σ=4.5,w=0.00) Loss=2.435248 LR=0.0195 CC=0.891
+Epoch   5: TF=0.250 Count(μ=4.5,σ=3.7,w=1.00) Add(μ=4.0,σ=4.7,w=0.00) Loss=2.475164 LR=0.0194 CC=0.889
+Epoch   6: TF=0.300 Count(μ=5.0,σ=4.9,w=1.00) Add(μ=4.4,σ=4.3,w=0.00) Loss=2.412915 LR=0.0193 CC=0.887
+Epoch   7: TF=0.350 Count(μ=5.5,σ=5.6,w=1.00) Add(μ=4.8,σ=4.8,w=0.00) Loss=2.428054 LR=0.0192 CC=0.886
+Epoch   8: TF=0.400 Count(μ=6.0,σ=6.6,w=1.00) Add(μ=5.2,σ=4.4,w=0.00) Loss=2.444297 LR=0.0191 CC=0.884
+Epoch   9: TF=0.450 Count(μ=6.5,σ=7.4,w=1.00) Add(μ=5.6,σ=4.5,w=0.00) Loss=2.482142 LR=0.0190 CC=0.882
+Epoch  10: TF=0.500 Count(μ=7.0,σ=6.9,w=1.00) Add(μ=6.0,σ=6.7,w=0.00) Loss=2.420324 LR=0.0189 CC=0.880
+Epoch  11: TF=0.550 Count(μ=7.5,σ=7.4,w=1.00) Add(μ=6.4,σ=6.5,w=0.00) Loss=2.454243 LR=0.0188 CC=0.879
+Epoch  12: TF=0.600 Count(μ=8.0,σ=5.4,w=1.00) Add(μ=6.8,σ=6.4,w=0.00) Loss=2.409073 LR=0.0187 CC=0.877
+Epoch  13: TF=0.650 Count(μ=8.5,σ=7.5,w=1.00) Add(μ=7.2,σ=6.9,w=0.00) Loss=2.445519 LR=0.0186 CC=0.875
+Epoch  14: TF=0.700 Count(μ=9.0,σ=10.6,w=1.00) Add(μ=7.6,σ=7.4,w=0.00) Loss=2.560625 LR=0.0186 CC=0.873
+Epoch  15: TF=0.750 Count(μ=9.5,σ=9.7,w=1.00) Add(μ=8.0,σ=7.0,w=0.00) Loss=2.463321 LR=0.0185 CC=0.872
+Epoch  16: TF=0.800 Count(μ=10.0,σ=8.6,w=1.00) Add(μ=8.4,σ=8.1,w=0.00) Loss=2.485837 LR=0.0184 CC=0.870
+Epoch  17: TF=0.850 Count(μ=10.5,σ=10.5,w=1.00) Add(μ=8.8,σ=9.6,w=0.00) Loss=2.468339 LR=0.0183 CC=0.868
+Epoch  18: TF=0.900 Count(μ=11.0,σ=12.0,w=1.00) Add(μ=9.2,σ=9.7,w=0.00) Loss=2.614258 LR=0.0182 CC=0.866
+Epoch  19: TF=0.950 Count(μ=11.5,σ=11.8,w=1.00) Add(μ=9.6,σ=10.3,w=0.00) Loss=2.600392 LR=0.0181 CC=0.865
+
+--- Testing at epoch 20 ---
+
+--- Testing Model ---
+1 -> ? = 7 (expected 2) ✗ conf:0.000 finger:True
+3 -> ? = 5 (expected 4) ✗ conf:0.001 finger:True
+5 -> ? = 7 (expected 6) ✗ conf:0.001 finger:True
+2 -> 3 = 7 (expected 3) ✗ conf:0.001 finger:True
+4 -> 5 = 4 (expected 5) ✗ conf:0.001 finger:True
+1 + 2 = 6 (expected 3) ✗ conf:0.001 finger:True
+2 + 2 = 6 (expected 4) ✗ conf:0.001 finger:True
+3 + 4 = 7 (expected 7) ✓ conf:0.001 finger:True
+4 + 5 = 7 (expected 9) ✗ conf:0.001 finger:True
+5 + 5 = 7 (expected 10) ✗ conf:0.001 finger:True
+
+Epoch  20: TF=1.000 Count(μ=12.0,σ=11.1,w=1.00) Add(μ=10.0,σ=9.7,w=0.00) Loss=2.545824 LR=0.0180 CC=0.863
+Epoch  21: TF=1.000 Count(μ=12.0,σ=12.0,w=1.00) Add(μ=10.0,σ=9.4,w=0.00) Loss=2.530143 LR=0.0179 CC=0.861
+Epoch  22: TF=1.000 Count(μ=12.0,σ=11.4,w=1.00) Add(μ=10.0,σ=10.5,w=0.00) Loss=2.513677 LR=0.0178 CC=0.859
+Epoch  23: TF=1.000 Count(μ=12.0,σ=11.4,w=1.00) Add(μ=10.0,σ=9.8,w=0.00) Loss=2.504222 LR=0.0177 CC=0.858
+Epoch  24: TF=1.000 Count(μ=12.0,σ=12.0,w=1.00) Add(μ=10.0,σ=8.9,w=0.00) Loss=2.467084 LR=0.0176 CC=0.856
+Epoch  25: TF=1.000 Count(μ=12.0,σ=12.0,w=1.00) Add(μ=10.0,σ=9.3,w=0.00) Loss=2.464825 LR=0.0176 CC=0.854
+Epoch  26: TF=1.000 Count(μ=12.0,σ=12.0,w=1.00) Add(μ=10.0,σ=10.1,w=0.00) Loss=2.434931 LR=0.0175 CC=0.853
+Epoch  27: TF=1.000 Count(μ=12.0,σ=12.0,w=1.00) Add(μ=10.0,σ=9.3,w=0.00) Loss=2.416531 LR=0.0174 CC=0.851
+Epoch  28: TF=1.000 Count(μ=12.0,σ=12.0,w=1.00) Add(μ=10.0,σ=10.8,w=0.00) Loss=2.409168 LR=0.0173 CC=0.849
+Epoch  29: TF=1.000 Count(μ=12.0,σ=11.5,w=1.00) Add(μ=10.0,σ=10.3,w=0.00) Loss=2.400973 LR=0.0172 CC=0.848
+Epoch  30: TF=1.000 Count(μ=12.0,σ=12.0,w=1.00) Add(μ=10.0,σ=10.2,w=0.00) Loss=2.369321 LR=0.0171 CC=0.846
+Epoch  31: TF=1.000 Count(μ=12.0,σ=11.8,w=0.98) Add(μ=10.0,σ=10.3,w=0.03) Loss=2.360529 LR=0.0170 CC=0.844
+Epoch  32: TF=1.000 Count(μ=12.0,σ=11.4,w=0.96) Add(μ=10.0,σ=12.0,w=0.06) Loss=2.342668 LR=0.0170 CC=0.842
+Epoch  33: TF=1.000 Count(μ=12.0,σ=10.4,w=0.94) Add(μ=10.0,σ=8.2,w=0.09) Loss=2.420953 LR=0.0169 CC=0.841
+Epoch  34: TF=1.000 Count(μ=12.0,σ=12.0,w=0.92) Add(μ=10.0,σ=10.9,w=0.11) Loss=2.331023 LR=0.0168 CC=0.839
+Epoch  35: TF=1.000 Count(μ=12.0,σ=11.2,w=0.90) Add(μ=10.0,σ=11.1,w=0.14) Loss=2.327563 LR=0.0167 CC=0.837
+Epoch  36: TF=1.000 Count(μ=12.0,σ=11.9,w=0.88) Add(μ=10.0,σ=9.0,w=0.17) Loss=2.324947 LR=0.0166 CC=0.836
+Epoch  37: TF=1.000 Count(μ=12.0,σ=12.0,w=0.86) Add(μ=10.0,σ=9.9,w=0.20) Loss=2.331465 LR=0.0165 CC=0.834
+Epoch  38: TF=1.000 Count(μ=12.0,σ=11.6,w=0.84) Add(μ=10.0,σ=11.3,w=0.23) Loss=2.313416 LR=0.0164 CC=0.832
+Epoch  39: TF=1.000 Count(μ=12.0,σ=12.0,w=0.82) Add(μ=10.0,σ=9.6,w=0.26) Loss=2.312844 LR=0.0164 CC=0.831
+
+--- Testing at epoch 40 ---
+
+--- Testing Model ---
+1 -> ? = 11 (expected 2) ✗ conf:0.003 finger:True
+3 -> ? = 12 (expected 4) ✗ conf:0.002 finger:True
+5 -> ? = 11 (expected 6) ✗ conf:0.003 finger:True
+2 -> 3 = 12 (expected 3) ✗ conf:0.003 finger:True
+4 -> 5 = 11 (expected 5) ✗ conf:0.003 finger:True
+1 + 2 = 11 (expected 3) ✗ conf:0.002 finger:True
+2 + 2 = 11 (expected 4) ✗ conf:0.002 finger:True
+3 + 4 = 11 (expected 7) ✗ conf:0.002 finger:True
+4 + 5 = 11 (expected 9) ✗ conf:0.002 finger:True
+5 + 5 = 11 (expected 10) ✗ conf:0.002 finger:True
+
+Epoch  40: TF=1.000 Count(μ=12.0,σ=11.8,w=0.80) Add(μ=10.0,σ=11.3,w=0.29) Loss=2.306654 LR=0.0163 CC=0.829
+Epoch  41: TF=1.000 Count(μ=12.0,σ=11.4,w=0.78) Add(μ=10.0,σ=10.8,w=0.31) Loss=2.294562 LR=0.0162 CC=0.827
+Epoch  42: TF=1.000 Count(μ=12.0,σ=11.5,w=0.76) Add(μ=10.0,σ=9.7,w=0.34) Loss=2.314892 LR=0.0161 CC=0.826
+Epoch  43: TF=1.000 Count(μ=12.0,σ=12.0,w=0.74) Add(μ=10.0,σ=10.4,w=0.37) Loss=2.319067 LR=0.0160 CC=0.824
+Epoch  44: TF=1.000 Count(μ=12.0,σ=12.0,w=0.72) Add(μ=10.0,σ=8.9,w=0.40) Loss=2.330046 LR=0.0160 CC=0.822
+Epoch  45: TF=1.000 Count(μ=12.0,σ=10.7,w=0.70) Add(μ=10.0,σ=9.9,w=0.43) Loss=2.387273 LR=0.0159 CC=0.821
+Epoch  46: TF=1.000 Count(μ=12.0,σ=11.9,w=0.68) Add(μ=10.0,σ=9.5,w=0.46) Loss=2.347193 LR=0.0158 CC=0.819
+Epoch  47: TF=1.000 Count(μ=12.0,σ=11.6,w=0.66) Add(μ=10.0,σ=9.4,w=0.49) Loss=2.319991 LR=0.0157 CC=0.818
+Epoch  48: TF=1.000 Count(μ=12.0,σ=11.6,w=0.64) Add(μ=10.0,σ=10.4,w=0.51) Loss=2.305109 LR=0.0156 CC=0.816
+Epoch  49: TF=1.000 Count(μ=12.0,σ=12.0,w=0.62) Add(μ=10.0,σ=10.6,w=0.54) Loss=2.296826 LR=0.0156 CC=0.814
+Epoch  50: TF=1.000 Count(μ=12.0,σ=11.9,w=0.60) Add(μ=10.0,σ=10.9,w=0.57) Loss=2.289012 LR=0.0155 CC=0.813
+Epoch  51: TF=1.000 Count(μ=12.0,σ=11.4,w=0.58) Add(μ=10.0,σ=10.6,w=0.60) Loss=2.295137 LR=0.0154 CC=0.811
+Epoch  52: TF=1.000 Count(μ=12.0,σ=11.4,w=0.56) Add(μ=10.0,σ=9.7,w=0.63) Loss=2.315689 LR=0.0153 CC=0.809
+Epoch  53: TF=1.000 Count(μ=12.0,σ=11.7,w=0.54) Add(μ=10.0,σ=9.1,w=0.66) Loss=2.334909 LR=0.0153 CC=0.808
+Epoch  54: TF=1.000 Count(μ=12.0,σ=11.7,w=0.52) Add(μ=10.0,σ=10.5,w=0.69) Loss=2.276408 LR=0.0152 CC=0.806
+Epoch  55: TF=1.000 Count(μ=12.0,σ=12.0,w=0.50) Add(μ=10.0,σ=9.9,w=0.71) Loss=2.325918 LR=0.0151 CC=0.805
+Epoch  56: TF=1.000 Count(μ=12.0,σ=12.0,w=0.48) Add(μ=10.0,σ=8.0,w=0.74) Loss=2.421762 LR=0.0150 CC=0.803
+Epoch  57: TF=1.000 Count(μ=12.0,σ=11.0,w=0.46) Add(μ=10.0,σ=10.4,w=0.77) Loss=2.272571 LR=0.0150 CC=0.801
+Epoch  58: TF=1.000 Count(μ=12.0,σ=12.0,w=0.44) Add(μ=10.0,σ=10.2,w=0.80) Loss=2.258177 LR=0.0149 CC=0.800
+Epoch  59: TF=1.000 Count(μ=12.0,σ=12.0,w=0.42) Add(μ=10.0,σ=10.6,w=0.83) Loss=2.234694 LR=0.0148 CC=0.798
+
+--- Testing at epoch 60 ---
+
+--- Testing Model ---
+1 -> ? = 11 (expected 2) ✗ conf:0.006 finger:True
+3 -> ? = 12 (expected 4) ✗ conf:0.005 finger:True
+5 -> ? = 11 (expected 6) ✗ conf:0.009 finger:True
+2 -> 3 = 11 (expected 3) ✗ conf:0.007 finger:True
+4 -> 5 = 11 (expected 5) ✗ conf:0.005 finger:True
+1 + 2 = 11 (expected 3) ✗ conf:0.004 finger:True
+2 + 2 = 11 (expected 4) ✗ conf:0.005 finger:True
+3 + 4 = 11 (expected 7) ✗ conf:0.004 finger:True
+4 + 5 = 11 (expected 9) ✗ conf:0.003 finger:True
+5 + 5 = 11 (expected 10) ✗ conf:0.004 finger:True
+
+Epoch  60: TF=1.000 Count(μ=12.0,σ=11.9,w=0.40) Add(μ=10.0,σ=9.4,w=0.86) Loss=2.313135 LR=0.0147 CC=0.797
+Epoch  61: TF=1.000 Count(μ=12.0,σ=12.0,w=0.38) Add(μ=10.0,σ=9.8,w=0.89) Loss=2.301481 LR=0.0147 CC=0.795
+Epoch  62: TF=1.000 Count(μ=12.0,σ=12.0,w=0.36) Add(μ=10.0,σ=10.1,w=0.91) Loss=2.210986 LR=0.0146 CC=0.793
+Epoch  63: TF=1.000 Count(μ=12.0,σ=11.7,w=0.34) Add(μ=10.0,σ=10.6,w=0.94) Loss=2.195628 LR=0.0145 CC=0.792
+Epoch  64: TF=1.000 Count(μ=12.0,σ=11.1,w=0.32) Add(μ=10.0,σ=9.8,w=0.97) Loss=2.379341 LR=0.0144 CC=0.790
+Epoch  65: TF=1.000 Count(μ=12.0,σ=12.0,w=0.30) Add(μ=10.0,σ=9.7,w=1.00) Loss=2.329774 LR=0.0144 CC=0.789
+Epoch  66: TF=1.000 Count(μ=12.0,σ=11.6,w=0.28) Add(μ=10.0,σ=9.6,w=1.00) Loss=2.283420 LR=0.0143 CC=0.787
+Epoch  67: TF=1.000 Count(μ=12.0,σ=12.0,w=0.26) Add(μ=10.0,σ=10.7,w=1.00) Loss=2.152540 LR=0.0142 CC=0.785
+Epoch  68: TF=1.000 Count(μ=12.0,σ=11.6,w=0.24) Add(μ=10.0,σ=11.6,w=1.00) Loss=2.139609 LR=0.0142 CC=0.784
+Epoch  69: TF=1.000 Count(μ=12.0,σ=11.5,w=0.22) Add(μ=10.0,σ=10.4,w=1.00) Loss=2.111314 LR=0.0141 CC=0.782
+Epoch  70: TF=1.000 Count(μ=12.0,σ=12.0,w=0.20) Add(μ=10.0,σ=10.0,w=1.00) Loss=2.320311 LR=0.0140 CC=0.781
+Epoch  71: TF=1.000 Count(μ=12.0,σ=11.6,w=0.18) Add(μ=10.0,σ=9.0,w=1.00) Loss=2.247293 LR=0.0139 CC=0.779
+Epoch  72: TF=1.000 Count(μ=12.0,σ=12.0,w=0.16) Add(μ=10.0,σ=11.0,w=1.00) Loss=2.069975 LR=0.0139 CC=0.778
+Epoch  73: TF=1.000 Count(μ=12.0,σ=11.8,w=0.14) Add(μ=10.0,σ=8.5,w=1.00) Loss=2.482630 LR=0.0138 CC=0.776
+Epoch  74: TF=1.000 Count(μ=12.0,σ=11.5,w=0.12) Add(μ=10.0,σ=10.4,w=1.00) Loss=2.041802 LR=0.0137 CC=0.775
+Epoch  75: TF=1.000 Count(μ=12.0,σ=12.0,w=0.10) Add(μ=10.0,σ=9.9,w=1.00) Loss=2.218309 LR=0.0137 CC=0.773
+Epoch  76: TF=1.000 Count(μ=12.0,σ=10.7,w=0.08) Add(μ=10.0,σ=10.5,w=1.00) Loss=1.995481 LR=0.0136 CC=0.771
+Epoch  77: TF=1.000 Count(μ=12.0,σ=12.0,w=0.06) Add(μ=10.0,σ=10.6,w=1.00) Loss=1.945665 LR=0.0135 CC=0.770
+Epoch  78: TF=1.000 Count(μ=12.0,σ=10.8,w=0.04) Add(μ=10.0,σ=10.7,w=1.00) Loss=1.905609 LR=0.0135 CC=0.768
+Epoch  79: TF=1.000 Count(μ=12.0,σ=12.0,w=0.02) Add(μ=10.0,σ=8.6,w=1.00) Loss=2.491634 LR=0.0134 CC=0.767
+
+--- Testing at epoch 80 ---
+
+--- Testing Model ---
+1 -> ? = 11 (expected 2) ✗ conf:0.009 finger:True
+3 -> ? = 10 (expected 4) ✗ conf:0.007 finger:True
+5 -> ? = 10 (expected 6) ✗ conf:0.013 finger:True
+2 -> 3 = 10 (expected 3) ✗ conf:0.011 finger:True
+4 -> 5 = 10 (expected 5) ✗ conf:0.009 finger:True
+1 + 2 = 10 (expected 3) ✗ conf:0.009 finger:True
+2 + 2 = 10 (expected 4) ✗ conf:0.010 finger:True
+3 + 4 = 10 (expected 7) ✗ conf:0.008 finger:True
+4 + 5 = 10 (expected 9) ✗ conf:0.010 finger:True
+5 + 5 = 10 (expected 10) ✓ conf:0.014 finger:True
+
+Epoch  80: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=10.3,w=1.00) Loss=1.869947 LR=0.0133 CC=0.765
+Epoch  81: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=10.5,w=1.00) Loss=1.829856 LR=0.0133 CC=0.764
+Epoch  82: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=9.9,w=1.00) Loss=2.110272 LR=0.0132 CC=0.762
+Epoch  83: TF=1.000 Count(μ=12.0,σ=11.4,w=0.00) Add(μ=10.0,σ=8.5,w=1.00) Loss=2.561157 LR=0.0131 CC=0.761
+Epoch  84: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=9.8,w=1.00) Loss=2.126187 LR=0.0131 CC=0.759
+Epoch  85: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=10.2,w=1.00) Loss=1.765697 LR=0.0130 CC=0.758
+Epoch  86: TF=1.000 Count(μ=12.0,σ=11.9,w=0.00) Add(μ=10.0,σ=8.3,w=1.00) Loss=2.528193 LR=0.0129 CC=0.756
+Epoch  87: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=9.6,w=1.00) Loss=2.127737 LR=0.0129 CC=0.755
+Epoch  88: TF=1.000 Count(μ=12.0,σ=11.6,w=0.00) Add(μ=10.0,σ=10.3,w=1.00) Loss=1.722078 LR=0.0128 CC=0.753
+Epoch  89: TF=1.000 Count(μ=12.0,σ=11.6,w=0.00) Add(μ=10.0,σ=9.3,w=1.00) Loss=2.129690 LR=0.0127 CC=0.752
+Epoch  90: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=9.6,w=1.00) Loss=2.000815 LR=0.0127 CC=0.750
+Epoch  91: TF=1.000 Count(μ=12.0,σ=11.4,w=0.00) Add(μ=10.0,σ=9.4,w=1.00) Loss=2.102424 LR=0.0126 CC=0.749
+Epoch  92: TF=1.000 Count(μ=12.0,σ=11.1,w=0.00) Add(μ=10.0,σ=10.3,w=1.00) Loss=1.654166 LR=0.0125 CC=0.747
+Epoch  93: TF=1.000 Count(μ=12.0,σ=11.3,w=0.00) Add(μ=10.0,σ=8.7,w=1.00) Loss=2.475572 LR=0.0125 CC=0.746
+Epoch  94: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=10.3,w=1.00) Loss=1.620216 LR=0.0124 CC=0.744
+Epoch  95: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=9.6,w=1.00) Loss=1.930998 LR=0.0124 CC=0.743
+Epoch  96: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=12.0,w=1.00) Loss=1.564044 LR=0.0123 CC=0.741
+Epoch  97: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=10.0,w=1.00) Loss=1.525448 LR=0.0122 CC=0.740
+Epoch  98: TF=1.000 Count(μ=12.0,σ=12.0,w=0.00) Add(μ=10.0,σ=9.7,w=1.00) Loss=2.148386 LR=0.0122 CC=0.738
+Epoch  99: TF=1.000 Count(μ=12.0,σ=11.3,w=0.00) Add(μ=10.0,σ=9.5,w=1.00) Loss=2.125133 LR=0.0121 CC=0.737
+
+--- Testing at epoch 100 ---
+
+--- Testing Model ---
+1 -> ? = 10 (expected 2) ✗ conf:0.012 finger:True
+3 -> ? = 10 (expected 4) ✗ conf:0.011 finger:True
+5 -> ? = 10 (expected 6) ✗ conf:0.020 finger:True
+2 -> 3 = 10 (expected 3) ✗ conf:0.018 finger:True
+4 -> 5 = 10 (expected 5) ✗ conf:0.018 finger:True
+1 + 2 = 10 (expected 3) ✗ conf:0.019 finger:True
+2 + 2 = 10 (expected 4) ✗ conf:0.021 finger:True
+3 + 4 = 10 (expected 7) ✗ conf:0.017 finger:True
+4 + 5 = 10 (expected 9) ✗ conf:0.027 finger:True
+5 + 5 = 10 (expected 10) ✓ conf:0.043 finger:True
+
+
+=== FINAL COMPREHENSIVE TESTING ===
+Counting tests:
+1 -> ? = 10 (expected 2) ✗ conf:0.012
+2 -> ? = 10 (expected 3) ✗ conf:0.015
+3 -> ? = 10 (expected 4) ✗ conf:0.011
+4 -> ? = 10 (expected 5) ✗ conf:0.011
+5 -> ? = 10 (expected 6) ✗ conf:0.020
+
+All addition combinations (complexity analysis):
+     1    2    3    4    5
+1: 10✗F 10✗F 10✗F 10✗F 10✗F
+2: 10✗F 10✗F 10✗F 10✗F 10✗F
+3: 10✗F 10✗F 10✗F 10✗F 10✗F
+4: 10✗F 10✗F 10✗F 10✗F 10✗F
+5: 10✗F 10✗F 10✗F 10✗F 10✓F
+
+Legend: [predicted][✓/✗][F=finger counting needed]
+
+Performance by complexity:
+  Complexity  2: 0/1 correct (  0.0%), 1 finger counting (100.0%)
+  Complexity  3: 0/2 correct (  0.0%), 2 finger counting (100.0%)
+  Complexity  4: 0/3 correct (  0.0%), 3 finger counting (100.0%)
+  Complexity  5: 0/4 correct (  0.0%), 4 finger counting (100.0%)
+  Complexity  6: 0/5 correct (  0.0%), 5 finger counting (100.0%)
+  Complexity  7: 0/4 correct (  0.0%), 4 finger counting (100.0%)
+  Complexity  8: 0/3 correct (  0.0%), 3 finger counting (100.0%)
+  Complexity  9: 0/2 correct (  0.0%), 2 finger counting (100.0%)
+  Complexity 10: 1/1 correct (100.0%), 1 finger counting (100.0%)
+
+Counting vs Addition conflict analysis:
+  2 -> ? = 10 (expected 3) conf:0.015
+  2 + 2 = 10 (expected 4) conf:0.021
+    Conflict resolved: False (counting: False, addition: False)
+
+  3 -> ? = 10 (expected 4) conf:0.011
+  3 + 3 = 10 (expected 6) conf:0.018
+    Conflict resolved: False (counting: False, addition: False)
+
+  4 -> ? = 10 (expected 5) conf:0.011
+  4 + 4 = 10 (expected 8) conf:0.018
+    Conflict resolved: False (counting: False, addition: False)
+

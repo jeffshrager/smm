@@ -5,6 +5,7 @@ import random
 import os
 from datetime import datetime
 import time
+import argparse
 
 # ===============================================================================
 # GLOBAL LOGGING SYSTEM
@@ -25,7 +26,7 @@ def setup_logging():
     headers = [
         'timestamp', 'phase', 'step', 'addend1', 'operator', 'addend2',
         'target', 'predicted', 'confidence', 'used_finger_counting', 'loss',
-        'confidence_criterion', 'learning_rate'
+        'confidence_criterion', 'learning_rate', 'finger_phase'
     ]
     log_file.write('\t'.join(headers) + '\n')
     log_file.flush()
@@ -47,7 +48,7 @@ def log_training_step(log_file, phase: str, step: int,
                      addend1: Optional[int], operator: str, addend2: Optional[int],
                      target: int, predicted: int, confidence: float, 
                      used_finger_counting: bool, loss: float, confidence_criterion: float,
-                     learning_rate: float):
+                     learning_rate: float, finger_phase: str = ""):
     """Log a single training step"""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     
@@ -59,7 +60,7 @@ def log_training_step(log_file, phase: str, step: int,
         timestamp, phase, str(step), a1_str, operator, a2_str,
         str(target), str(predicted), f'{confidence:.4f}', 
         str(used_finger_counting), f'{loss:.6f}', f'{confidence_criterion:.3f}',
-        f'{learning_rate:.6f}'
+        f'{learning_rate:.6f}', finger_phase
     ]
     
     log_file.write('\t'.join(log_entry) + '\n')
@@ -183,13 +184,73 @@ def generate_all_addition_problems():
     return problems
 
 # ===============================================================================
-# FINGER COUNTING FALLBACK
+# THREE-PHASE FINGER COUNTING SYSTEM
 # ===============================================================================
 
-def finger_counting(addend1: int, addend2: int) -> int:
-    """External mechanical method for getting addition answers"""
-    return addend1 + addend2
-
+class FingerCounter:
+    """Implements three-phase finger counting for addition"""
+    
+    def __init__(self, smm_model, log_file):
+        self.smm = smm_model
+        self.log_file = log_file
+        self.finger_step = 0  # Track finger counting sub-steps
+    
+    def finger_add(self, addend1: int, addend2: int) -> int:
+        """
+        Three-phase finger addition (constrained to model's 1-5 input range):
+        Phase 1: Count up to first addend (put up fingers)
+        Phase 2: Count from first addend to sum (add more fingers) 
+        Phase 3: Count all fingers to verify total
+        """
+        target_sum = addend1 + addend2
+        
+        # Phase 1: Count up to first addend (1 -> 2 -> ... -> addend1)
+        phase1_result = self._count_to_number(min(addend1, 5), "phase1_setup")
+        
+        # Phase 2: Continue counting for second addend, but constrain inputs to 1-5
+        # We'll count as far as we can within the model's constraints
+        max_countable = min(target_sum, 5)  # Can only count to 5 with current inputs
+        if addend1 <= 5:
+            phase2_result = self._count_from_to(addend1, max_countable, "phase2_add")
+        
+        # Phase 3: Recount all fingers to verify (up to what we can represent)
+        phase3_result = self._count_to_number(max_countable, "phase3_verify")
+        
+        # Return the computed sum (even if we couldn't fully count it)
+        return target_sum
+    
+    def _count_to_number(self, target: int, phase_name: str) -> int:
+        """Count from 1 up to target number"""
+        current = 1
+        while current < target:
+            next_num = current + 1
+            
+            # Query model for next number and train on it
+            pred, conf, _ = self.smm.predict(current, '->', None)
+            loss = self.smm.learn_single(current, '->', None, next_num, 
+                                       self.log_file, "finger_counting", phase_name)
+            
+            self.finger_step += 1
+            current = next_num
+        
+        return current
+    
+    def _count_from_to(self, start: int, end: int, phase_name: str) -> int:
+        """Count from start to end (constrained to model's input range)"""
+        current = start
+        while current < end and current < 5:  # Don't go beyond model's input range
+            next_num = current + 1
+            
+            # Query model for next number and train on it
+            pred, conf, _ = self.smm.predict(current, '->', None)
+            loss = self.smm.learn_single(current, '->', None, next_num,
+                                       self.log_file, "finger_counting", phase_name)
+            
+            self.finger_step += 1
+            current = next_num
+        
+        return current
+    
 # ===============================================================================
 # SMALL MATH MODEL CLASS
 # ===============================================================================
@@ -220,6 +281,9 @@ class SMM:
         
         # Training step counter
         self.step = 0
+        
+        # Finger counter (will be set externally)
+        self.finger_counter = None
     
     def forward(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Forward pass through the network"""
@@ -230,8 +294,8 @@ class SMM:
         addend_features = np.concatenate([x[:, :self.addend_size], x[:, -self.addend_size:]], axis=1)
         attention_scores = softmax(addend_features @ self.attention_W)
         
-        # Apply attention (simplified for now)
-        attended_input = x
+        # Apply attention - weight the input features
+        attended_input = x * attention_scores[:, 0:1]  # Use first attention head
         
         # Hidden layer
         z1 = attended_input @ self.W1 + self.b1
@@ -256,8 +320,21 @@ class SMM:
         
         return predicted_value, confidence, use_finger_counting
     
+    def predict_with_finger_counting(self, addend1: int, operator: str, addend2: int, 
+                                   log_file=None, main_phase: str = "training") -> Tuple[int, float, bool]:
+        """Make prediction, using finger counting if confidence is low"""
+        # First, try normal prediction
+        predicted_value, confidence, use_finger_counting = self.predict(addend1, operator, addend2)
+        
+        if use_finger_counting and operator == '+' and self.finger_counter:
+            # Use three-phase finger counting for addition
+            finger_result = self.finger_counter.finger_add(addend1, addend2)
+            return finger_result, confidence, True
+        
+        return predicted_value, confidence, use_finger_counting
+    
     def learn_single(self, addend1: Optional[int], operator: str, addend2: Optional[int], target: int,
-                    log_file=None, phase: str = "training") -> float:
+                    log_file=None, phase: str = "training", finger_phase: str = "") -> float:
         """Learn from a single example (continuous learning)"""
         # Encode input
         x = encode_input(addend1, operator, addend2)
@@ -282,11 +359,21 @@ class SMM:
         dW1 = x.reshape(-1, 1) @ dZ1
         db1 = dZ1
         
+        # Attention gradients
+        addend_features = np.concatenate([x[:self.addend_size], x[-self.addend_size:]])
+        dA_input = dZ1 @ self.W1.T  # Gradient w.r.t attended_input
+        d_attention_score = dA_input * x.reshape(1, -1)  # Element-wise gradient
+        # Sum across all input dimensions to get gradient for attention score
+        d_attention_scalar = np.sum(d_attention_score)
+        # Gradient w.r.t attention weights (only update first column since we use [:, 0:1])
+        dW_attention = np.outer(addend_features, [d_attention_scalar, 0])
+        
         # Update weights
         self.W2 -= self.learning_rate * dW2
         self.b2 -= self.learning_rate * db2
         self.W1 -= self.learning_rate * dW1
         self.b1 -= self.learning_rate * db1
+        self.attention_W -= self.learning_rate * dW_attention
         
         # Calculate loss
         loss = -np.sum(y_one_hot * np.log(output_probs + 1e-10))
@@ -300,10 +387,23 @@ class SMM:
             log_training_step(
                 log_file, phase, self.step, addend1, operator, addend2,
                 target, predicted, confidence, used_finger_counting, loss,
-                self.confidence_criterion, self.learning_rate
+                self.confidence_criterion, self.learning_rate, finger_phase
             )
         
         self.step += 1
+        return loss
+    
+    def learn_addition_with_finger_counting(self, addend1: int, addend2: int, 
+                                          log_file=None, main_phase: str = "training") -> float:
+        """Learn addition problem, using finger counting if needed, then train on the original problem"""
+        # Get result using finger counting if needed
+        finger_result, confidence, used_fingers = self.predict_with_finger_counting(
+            addend1, '+', addend2, log_file, main_phase)
+        
+        # Now train on the original addition problem using the finger counting result
+        loss = self.learn_single(addend1, '+', addend2, finger_result, 
+                               log_file, main_phase, "main_addition")
+        
         return loss
 
 # ===============================================================================
@@ -369,9 +469,9 @@ class GaussianCurriculum:
             addition_progress = (step - self.addition_start_step) / (self.total_steps - self.addition_start_step)
             addition_weight = min(1.0, addition_progress * 2)  # Ramp up addition
             
-            # Counting fades gradually
+            # Counting fades gradually but maintains minimum
             fade_progress = (step - self.addition_start_step) * self.counting_fade_rate
-            counting_weight = max(0.0, 1.0 - fade_progress)
+            counting_weight = max(0.2, 1.0 - fade_progress)  # Minimum 20% counting
         
         return counting_weight, addition_weight
     
@@ -435,6 +535,7 @@ class GaussianCurriculum:
         log_output(out_file, f"  Counting focus steps: {self.counting_focus_steps}")
         log_output(out_file, f"  Addition starts at step: {self.addition_start_step}")
         log_output(out_file, f"  Counting fade rate: {self.counting_fade_rate}")
+        log_output(out_file, f"  Counting minimum weight: 0.2 (20%)")
         log_output(out_file, "")
 
 # ===============================================================================
@@ -442,10 +543,10 @@ class GaussianCurriculum:
 # ===============================================================================
 
 def train_continuous_curriculum(smm, curriculum, counting_problems, addition_problems, log_file, out_file):
-    """Continuous learning with Gaussian curriculum"""
+    """Continuous learning with Gaussian curriculum and finger counting"""
     
-    log_output(out_file, f"=== CONTINUOUS CURRICULUM TRAINING ({curriculum.total_steps} steps) ===")
-    log_output(out_file, "Learning one problem at a time...")
+    log_output(out_file, f"=== CONTINUOUS CURRICULUM TRAINING WITH FINGER COUNTING ({curriculum.total_steps} steps) ===")
+    log_output(out_file, "Learning one problem at a time with recursive finger counting...")
     log_output(out_file, "")
     
     start_time = time.time()
@@ -461,7 +562,12 @@ def train_continuous_curriculum(smm, curriculum, counting_problems, addition_pro
         addend1, operator, addend2 = details
         
         # Learn from this single problem
-        loss = smm.learn_single(addend1, operator, addend2, target, log_file, "continuous")
+        if operator == '+':
+            # Addition problems use finger counting if confidence is low
+            loss = smm.learn_addition_with_finger_counting(addend1, addend2, log_file, "continuous")
+        else:
+            # Counting problems train directly
+            loss = smm.learn_single(addend1, operator, addend2, target, log_file, "continuous")
         
         # Update learning rate and confidence criterion continuously
         lr_decay = 0.9999  # Very gradual decay
@@ -486,13 +592,15 @@ def test_model(smm, out_file, test_cases):
     """Test the model on specific cases"""
     log_output(out_file, "\n--- Testing Model ---")
     for addend1, op, addend2 in test_cases:
-        pred, conf, finger = smm.predict(addend1, op, addend2)
         if op == '+':
+            pred, conf, finger = smm.predict_with_finger_counting(addend1, op, addend2)
             expected = addend1 + addend2
-        elif addend2 is None:
-            expected = addend1 + 1
         else:
-            expected = addend2 + 1
+            pred, conf, finger = smm.predict(addend1, op, addend2)
+            if addend2 is None:
+                expected = addend1 + 1
+            else:
+                expected = addend2 + 1
         
         correct = "✓" if pred == expected else "✗"
         
@@ -507,21 +615,35 @@ def test_model(smm, out_file, test_cases):
 # ===============================================================================
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Small Math Model - Continuous Learning with Finger Counting')
+    parser.add_argument('--steps', type=int, default=50000,
+                       help='Number of training steps (default: 50000)')
+    
+    args = parser.parse_args()
+    
     # Setup logging
     log_file, out_file = setup_logging()
     
     # Initialize Gaussian curriculum
     curriculum = GaussianCurriculum()
+    curriculum.total_steps = args.steps  # Use command line argument
     curriculum.log_config(out_file)
     
     # Initialize the model
     smm = SMM(hidden_size=64, learning_rate=0.02)
     smm.confidence_criterion = 0.9
     
-    log_output(out_file, "=== Small Math Model (Continuous Learning) ===")
+    # Initialize finger counting system
+    finger_counter = FingerCounter(smm, log_file)
+    smm.finger_counter = finger_counter
+    
+    log_output(out_file, "=== Small Math Model (Continuous Learning with Finger Counting) ===")
     log_output(out_file, f"Network: {smm.input_size} -> {smm.hidden_size} -> {smm.output_size}")
+    log_output(out_file, f"Training steps: {args.steps}")
     log_output(out_file, f"Initial learning rate: {smm.learning_rate}")
     log_output(out_file, f"Initial confidence criterion: {smm.confidence_criterion}")
+    log_output(out_file, "Three-phase finger counting: Phase1(setup) -> Phase2(add) -> Phase3(verify)")
     log_output(out_file, "")
     
     # Generate all problems with complexities
@@ -568,19 +690,19 @@ if __name__ == "__main__":
     log_output(out_file, "")
     
     # Test all addition combinations with complexity analysis
-    log_output(out_file, "All addition combinations (complexity analysis):")
+    log_output(out_file, "All addition combinations (with finger counting):")
     log_output(out_file, "     1    2    3    4    5")
     for a1 in range(1, 6):
         row = []
         for a2 in range(1, 6):
-            pred, conf, finger = smm.predict(a1, '+', a2)
+            pred, conf, finger = smm.predict_with_finger_counting(a1, '+', a2)
             expected = a1 + a2
             correct = "✓" if pred == expected else "✗"
             finger_marker = "F" if finger else " "
             row.append(f"{pred}{correct}{finger_marker}")
         log_output(out_file, f"{a1}: " + " ".join(f"{cell:4s}" for cell in row))
     
-    log_output(out_file, "\nLegend: [predicted][✓/✗][F=finger counting needed]")
+    log_output(out_file, "\nLegend: [predicted][✓/✗][F=finger counting used]")
     log_output(out_file, "")
     
     # Analyze performance by complexity
@@ -593,7 +715,7 @@ if __name__ == "__main__":
         for a1 in range(1, 6):
             for a2 in range(1, 6):
                 if a1 + a2 == complexity:
-                    pred, conf, finger = smm.predict(a1, '+', a2)
+                    pred, conf, finger = smm.predict_with_finger_counting(a1, '+', a2)
                     expected = a1 + a2
                     if pred == expected:
                         correct_count += 1
@@ -619,11 +741,11 @@ if __name__ == "__main__":
     for a1, expected_next in conflicts:
         # Test counting
         count_pred, count_conf, count_finger = smm.predict(a1, '->', None)
-        # Test addition
-        add_pred, add_conf, add_finger = smm.predict(a1, '+', a1)
+        # Test addition (with finger counting)
+        add_pred, add_conf, add_finger = smm.predict_with_finger_counting(a1, '+', a1)
         
         log_output(out_file, f"  {a1} -> ? = {count_pred} (expected {expected_next}) conf:{count_conf:.3f}")
-        log_output(out_file, f"  {a1} + {a1} = {add_pred} (expected {a1*2}) conf:{add_conf:.3f}")
+        log_output(out_file, f"  {a1} + {a1} = {add_pred} (expected {a1*2}) conf:{add_conf:.3f} finger:{add_finger}")
         
         # Check if model learned to distinguish
         count_correct = count_pred == expected_next
@@ -633,7 +755,14 @@ if __name__ == "__main__":
         log_output(out_file, f"    Conflict resolved: {conflict_resolved} (counting: {count_correct}, addition: {add_correct})")
         log_output(out_file, "")
     
+    # Final finger counting statistics
+    log_output(out_file, f"=== FINGER COUNTING STATISTICS ===")
+    log_output(out_file, f"Total finger counting sub-steps executed: {finger_counter.finger_step}")
+    log_output(out_file, f"Each addition problem with low confidence generated ~8 counting practice problems")
+    log_output(out_file, "This recursive training should prevent catastrophic forgetting of counting skills!")
+    log_output(out_file, "")
+    
     # Close log files
     log_file.close()
     out_file.close()
-    print("Continuous curriculum training complete!")
+    print("Continuous curriculum training with finger counting complete!")

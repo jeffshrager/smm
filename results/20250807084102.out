@@ -1,0 +1,101 @@
+=== GAUSSIAN CURRICULUM CONFIGURATION (CONTINUOUS) ===
+Time Flow (TF):
+  TF rate: 0.0001 (curriculum speed per step)
+
+Complexity Flow (CF):
+  CF variance: 1.5 (complexity spread)
+  Counting complexity range: 2.0 -> 12.0
+  Addition complexity range: 2.0 -> 10.0
+
+Complexity (CX):
+  CX variance: 0.8 (problem variation)
+
+Training schedule:
+  Total steps: 10000
+  Counting focus steps: 6000
+  Addition starts at step: 3000
+  Counting fade rate: 0.0002
+
+=== Small Math Model (Continuous Learning) ===
+Network: 12 -> 64 -> 12
+Initial learning rate: 0.02
+Initial confidence criterion: 0.9
+
+Generated problem sets:
+  Counting problems: 15
+  Addition problems: 25
+
+Complexity ranges:
+  Counting: 2 to 12
+  Addition: 2 to 10
+
+=== TESTING BEFORE TRAINING ===
+
+--- Testing Model ---
+1 -> ? = 5 (expected 2) ✗ conf:0.001 finger:True
+3 -> ? = 11 (expected 4) ✗ conf:0.000 finger:True
+5 -> ? = 11 (expected 6) ✗ conf:0.000 finger:True
+2 -> 3 = 11 (expected 4) ✗ conf:0.002 finger:True
+4 -> 5 = 12 (expected 6) ✗ conf:0.001 finger:True
+1 + 2 = 1 (expected 3) ✗ conf:0.000 finger:True
+2 + 2 = 12 (expected 4) ✗ conf:0.000 finger:True
+3 + 4 = 7 (expected 7) ✓ conf:0.000 finger:True
+4 + 5 = 4 (expected 9) ✗ conf:0.001 finger:True
+5 + 5 = 4 (expected 10) ✗ conf:0.001 finger:True
+
+=== CONTINUOUS CURRICULUM TRAINING (10000 steps) ===
+Learning one problem at a time...
+
+Step  1000: TF=0.100 CF=3.0 CX=2.5 W=1.00 Loss=0.057443 LR=0.018097 CC=0.814 (0.2s)
+Step  2000: TF=0.200 CF=4.0 CX=3.3 W=1.00 Loss=0.048598 LR=0.016374 CC=0.737 (0.4s)
+Step  3000: TF=0.300 CF=5.0 CX=4.8 W=1.00 Loss=0.229097 LR=0.014816 CC=0.667 (0.6s)
+Step  4000: TF=0.400 CF=6.0 CX=5.2 W=0.80 Loss=0.176325 LR=0.013406 CC=0.603 (0.8s)
+Step  5000: TF=0.500 CF=6.0 CX=6.6 W=0.57 Loss=0.577520 LR=0.012130 CC=0.600 (1.0s)
+Step  6000: TF=0.600 CF=8.0 CX=8.8 W=0.40 Loss=1.679106 LR=0.010976 CC=0.600 (1.2s)
+Step  7000: TF=0.700 CF=7.6 CX=7.0 W=1.00 Loss=0.362127 LR=0.009931 CC=0.600 (1.4s)
+Step  8000: TF=0.800 CF=8.4 CX=8.4 W=1.00 Loss=0.193858 LR=0.008986 CC=0.600 (1.6s)
+Step  9000: TF=0.900 CF=9.2 CX=8.0 W=1.00 Loss=0.273707 LR=0.008131 CC=0.600 (1.8s)
+Step 10000: TF=1.000 CF=10.0 CX=9.9 W=1.00 Loss=0.030472 LR=0.007357 CC=0.600 (2.0s)
+
+=== FINAL COMPREHENSIVE TESTING ===
+Counting tests:
+1 -> ? = 5 (expected 2) ✗ conf:0.530
+2 -> ? = 3 (expected 3) ✓ conf:0.419
+3 -> ? = 5 (expected 4) ✗ conf:0.564
+4 -> ? = 5 (expected 5) ✓ conf:0.747
+5 -> ? = 11 (expected 6) ✗ conf:0.405
+
+All addition combinations (complexity analysis):
+     1    2    3    4    5
+1: 6✗F  3✓F  8✗F  5✓F  10✗F
+2: 6✗F  7✗   7✗F  6✓F  7✓F 
+3: 5✗F  7✗F  8✗   7✓F  8✓  
+4: 5✓F  6✓F  7✓F  8✓   9✓  
+5: 10✗F 7✓F  8✓   9✓   10✓ 
+
+Legend: [predicted][✓/✗][F=finger counting needed]
+
+Performance by complexity:
+  Complexity  2: 0/1 correct (  0.0%), 1 finger counting (100.0%)
+  Complexity  3: 1/2 correct ( 50.0%), 2 finger counting (100.0%)
+  Complexity  4: 0/3 correct (  0.0%), 2 finger counting ( 66.7%)
+  Complexity  5: 2/4 correct ( 50.0%), 4 finger counting (100.0%)
+  Complexity  6: 2/5 correct ( 40.0%), 4 finger counting ( 80.0%)
+  Complexity  7: 4/4 correct (100.0%), 4 finger counting (100.0%)
+  Complexity  8: 3/3 correct (100.0%), 0 finger counting (  0.0%)
+  Complexity  9: 2/2 correct (100.0%), 0 finger counting (  0.0%)
+  Complexity 10: 1/1 correct (100.0%), 0 finger counting (  0.0%)
+
+Counting vs Addition conflict analysis:
+  2 -> ? = 3 (expected 3) conf:0.419
+  2 + 2 = 7 (expected 4) conf:0.618
+    Conflict resolved: False (counting: True, addition: False)
+
+  3 -> ? = 5 (expected 4) conf:0.564
+  3 + 3 = 8 (expected 6) conf:0.711
+    Conflict resolved: False (counting: False, addition: False)
+
+  4 -> ? = 5 (expected 5) conf:0.747
+  4 + 4 = 8 (expected 8) conf:0.760
+    Conflict resolved: True (counting: True, addition: True)
+

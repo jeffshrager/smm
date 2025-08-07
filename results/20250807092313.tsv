@@ -1,0 +1,16 @@
+timestamp	phase	step	addend1	operator	addend2	target	predicted	confidence	used_finger_counting	loss	confidence_criterion	learning_rate	finger_phase
+2025-08-07 09:23:13.052	finger_counting	0	1	->		2	8	0.0001	True	2.471438	0.900	0.020000	phase2_add
+2025-08-07 09:23:13.053	finger_counting	1	2	->		3	2	0.0004	True	2.454159	0.900	0.020000	phase2_add
+2025-08-07 09:23:13.053	finger_counting	2	1	->		2	3	0.0001	True	2.448698	0.900	0.020000	phase3_verify
+2025-08-07 09:23:13.054	finger_counting	3	2	->		3	2	0.0005	True	2.428118	0.900	0.020000	phase3_verify
+2025-08-07 09:23:13.054	finger_counting	4	1	->		2	3	0.0002	True	2.426079	0.900	0.020000	phase1_setup
+2025-08-07 09:23:13.055	finger_counting	5	2	->		3	2	0.0007	True	2.402208	0.900	0.020000	phase2_add
+2025-08-07 09:23:13.055	finger_counting	6	3	->		4	3	0.0004	True	2.526817	0.900	0.020000	phase2_add
+2025-08-07 09:23:13.055	finger_counting	7	1	->		2	3	0.0003	True	2.407571	0.900	0.020000	phase3_verify
+2025-08-07 09:23:13.056	finger_counting	8	2	->		3	2	0.0009	True	2.378300	0.900	0.020000	phase3_verify
+2025-08-07 09:23:13.056	finger_counting	9	3	->		4	3	0.0006	True	2.499542	0.900	0.020000	phase3_verify
+2025-08-07 09:23:13.056	finger_counting	10	1	->		2	3	0.0005	True	2.390064	0.900	0.020000	phase1_setup
+2025-08-07 09:23:13.057	finger_counting	11	2	->		3	2	0.0012	True	2.355321	0.900	0.020000	phase1_setup
+2025-08-07 09:23:13.057	finger_counting	12	3	->		4	3	0.0007	True	2.475262	0.900	0.020000	phase2_add
+2025-08-07 09:23:13.057	finger_counting	13	4	->		5	3	0.0008	True	2.507632	0.900	0.020000	phase2_add
+2025-08-07 09:23:13.057	finger_counting	14	5	->		6	2	0.0012	True	2.559125	0.900	0.020000	phase2_add

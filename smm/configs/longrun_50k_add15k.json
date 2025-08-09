@@ -1,0 +1,14 @@
+{
+  "total_steps": 50000,
+  "learning_rate": 0.005,
+  "learning_rate_floor": 0.002,
+  "lr_decay": 0.9999,
+  "hidden_size": 64,
+  "gate_freeze_until_step": 3000,
+  "addition_start_step": 15000,
+  "counting_fade_rate": 0.0001,
+  "confidence_criterion_start": 0.9,
+  "confidence_floor": 0.75,
+  "checkpoint_interval": 10000,
+  "resume_from_checkpoint": null
+}

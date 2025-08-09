@@ -30,7 +30,7 @@ class FingerCounter:
             nxt = current + 1
             _pred, _conf, _ = self.smm.predict(current, '->', None)
             self.smm.learn_single(current, '->', None, nxt,
-                                  log_fn=lambda *args, **kw: self.log_step_cb(*args, **kw, finger_phase=phase_name),
+                                  log_fn=lambda *args, **kw: self.log_step_cb(*args, **kw),
                                   phase="finger_counting", finger_phase=phase_name)
             self.finger_step += 1
             current = nxt
@@ -42,7 +42,7 @@ class FingerCounter:
             nxt = current + 1
             _pred, _conf, _ = self.smm.predict(current, '->', None)
             self.smm.learn_single(current, '->', None, nxt,
-                                  log_fn=lambda *args, **kw: self.log_step_cb(*args, **kw, finger_phase=phase_name),
+                                  log_fn=lambda *args, **kw: self.log_step_cb(*args, **kw),
                                   phase="finger_counting", finger_phase=phase_name)
             self.finger_step += 1
             current = nxt

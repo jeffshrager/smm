@@ -42,12 +42,12 @@ def encode_input(addend1: Optional[int], operator: str, addend2: Optional[int]) 
     return np.concatenate([a1, op, a2])
 
 class SMM:
-    "
+    '''
     Small Math Model with domain-agnostic per-dimension gate.
     - Input: 12 dims (5 a1, 2 op, 5 a2)
     - Hidden: configurable
     - Output: 12 classes (1..12)  [addition & next only in this codebase]
-    "
+    '''
     def __init__(self, hidden_size: int = 64, learning_rate: float = 0.005, gate_freeze_until_step:int=3000):
         self.addend_size = 5
         self.operator_size = 2
@@ -71,6 +71,19 @@ class SMM:
         self.gate_freeze_until_step = gate_freeze_until_step
 
         self.finger_counter = None  # set externally
+
+    def learn_addition_with_finger_counting(
+        self, addend1: int, addend2: int, 
+        log_fn=None, phase: str = "training"
+       ) -> float:
+        """Use finger counting if confidence is low, then train on the original addition."""
+        finger_result, _conf, _used = self.predict_with_finger_counting(addend1, '+', addend2)
+        loss = self.learn_single(
+            addend1, '+', addend2, finger_result,
+            log_fn=log_fn, phase=phase, finger_phase="main_addition"
+        )
+        return loss
+
 
     # ---------- forward / predict ----------
     def forward(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

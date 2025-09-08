@@ -1,7 +1,7 @@
 import argparse, os, time, json
 from datetime import datetime
 import numpy as np
-from smm_core import SMM, encode_input, calculate_confidence
+from smm_core import SMM, calculate_confidence
 from finger_counting import FingerCounter
 from curriculum import GaussianCurriculum
 from data_gen import generate_all_counting_problems, generate_all_addition_problems
@@ -47,8 +47,15 @@ def save_checkpoint(path, smm:SMM, curriculum:GaussianCurriculum, meta:dict):
 
 def load_checkpoint(path, smm:SMM):
     data = np.load(path, allow_pickle=True)
-    state = {k: data[k] for k in ['W1','b1','W2','b2','attn_A','attn_b',
-                                  'confidence_criterion','learning_rate','step','gate_freeze_until_step']}
+    state = {
+        k: data[k]
+        for k in [
+            'W1', 'b1', 'W_out', 'output_embeddings', 'number_embeddings',
+            'operator_embeddings', 'attn_A', 'attn_b',
+            'confidence_criterion', 'learning_rate', 'step',
+            'gate_freeze_until_step',
+        ]
+    }
     smm.set_state(state)
     meta = json.loads(str(data['meta']))
     return meta

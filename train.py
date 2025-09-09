@@ -64,7 +64,7 @@ def quick_report(fout, smm):
         else:
             pred, conf, used_fc = smm.predict(a1, op, a2)
             expected = (a1 + 1) if a2 is None else (a2 + 1)
-        ok = "✓" if pred == expected else "✗"
+        ok = "+" if pred == expected else "-"
         a1s = str(a1) if a1 is not None else "?"
         a2s = str(a2) if a2 is not None else "?"
         log_output(fout, f"{a1s} {op} {a2s} = {pred} (expected {expected}) {ok} "

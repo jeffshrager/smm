@@ -1,131 +1,76 @@
-# smm
-Small Math Model
-# Small Math Model (SMM)
+# Small Math Model (SMM) — Embeddings, Quasi-Attention, and Finger Counting
 
-A simplified neural network that learns basic arithmetic, designed to study how neural networks handle conflicting learned behaviors. The SMM demonstrates the tension between counting sequences and addition through continuous learning with Gaussian curriculum scheduling.
+The Small Math Model (SMM) is a pedagogical analogue to modern Large Language and Math Models (LLMs/LMMs). It is designed to study how embeddings, attention-like gating, curriculum learning, and fallback reasoning strategies (finger counting) interact in a controlled setting. This project modernizes and extends earlier work by Shrager et al. by explicitly incorporating embeddings and quasi-attention.
 
-## Overview
-
-The Small Math Model is a three-layer neural network that learns to process three-word sentences of the form "addend1 operator addend2" where:
-- **Addends**: Numbers 1-5 
-- **Operators**: `+` (addition) or `->` (counting/next)
-- **Outputs**: Numbers 1-12
-
-### Key Research Features
-
-**Counting vs Addition Conflict**: The model first learns counting sequences (1→2, 2→3, 3→4, etc.) then must learn addition. This creates intentional conflicts like learning "2 → 3" but later "2 + 3 = 5", forcing the network to use the operator to determine which pattern applies.
-
-**Gaussian Curriculum Learning**: Three-level hierarchical system:
-- **Time Flow (TF)**: Controls overall pacing through training
-- **Complexity Flow (CF)**: Gets mean from TF, determines current complexity focus  
-- **Complexity (CX)**: Gets mean from CF, samples actual problems
-
-**Confidence & Finger Counting**: Uses entropy-based confidence calculation. When confidence falls below threshold, engages "finger counting" - a fallback representing external mechanical computation.
-
-## Architecture
-
-- **Input Layer**: One-hot encoding (addend1 + operator + addend2) = 12 dimensions
-- **Hidden Layer**: 64 ReLU units with simple attention mechanism
-- **Output Layer**: 12 softmax units (results 1-12)
-- **Learning**: Continuous online learning (one problem per step)
+## Key Features
+- **Embeddings**: Numbers (1–12) and operators (`+`, `->`) are mapped into learned vector embeddings, analogous to token embeddings in LLMs.
+- **Quasi-Attention**: Inputs are concatenated and passed through a per-dimension sigmoid gate (`gate = sigmoid(x @ A + b)`), allowing the model to emphasize or suppress input dimensions. This acts as a simplified form of attention.
+- **Finger Counting**: A three-phase counting procedure serves as an external reasoning tool. When the model’s confidence is low (based on entropy of the output distribution), it falls back to finger counting, and the result is fed back into training.
+- **Curriculum Learning**: A Gaussian schedule controls task difficulty and the mix of counting vs. addition problems, delaying addition until later in training.
+- **Confidence Annealing**: A confidence floor ensures finger counting remains active early in training, then gradually phases it out.
 
 ## Installation
-
 ```bash
-# Required packages
-pip install numpy matplotlib pandas
+pip install numpy pandas matplotlib
 
-Usage
-Basic Training
-bashpython smm2.py
-This will:
+##Running Training
 
-Initialize the SMM with Gaussian curriculum
-Train for 10,000 continuous learning steps
-Log all training data to results/TIMESTAMP.tsv
-Output progress to results/TIMESTAMP.out
-Test the model comprehensively at the end
+Example (long run with JSON config):
 
-Analyzing Results
-Use the visualization tool to plot learning progress:
-bash# Basic 3D histogram plot
-python plot_smm_progress.py results/20231207123456.tsv
+python -m train --config smm/configs/longrun_50k.json --outdir smm/results
 
-# Custom epoch grouping (500 steps per epoch)
-python plot_smm_progress.py results/20231207123456.tsv --steps-per-epoch 500
 
-# Save plot to file
-python plot_smm_progress.py results/20231207123456.tsv --output progress.png
-Configuration
-Model Parameters
-In smm2.py, you can adjust:
-python# Network architecture
-smm = SMM(hidden_size=64, learning_rate=0.02)
-smm.confidence_criterion = 0.9  # Threshold for finger counting
+##Override any parameter on the command line:
 
-# Curriculum parameters
-curriculum = GaussianCurriculum()
-curriculum.total_steps = 10000           # Total training steps
-curriculum.addition_start_step = 3000    # When addition begins
-curriculum.tf_rate = 0.0001             # Curriculum speed
-Curriculum Learning Schedule
+python -m train --config smm/configs/longrun_50k.json \
+  --override learning_rate=0.005 addition_start_step=15000 checkpoint_interval=5000
 
-Steps 0-3000: Pure counting focus
-Steps 3000-10000: Gradual transition to addition
-Continuous mixing: Smooth Gaussian transitions, no hard phase boundaries
+##Evaluation and Summarization
+python -m eval smm/results/2025xxxxxxxx.tsv --steps-per-epoch 1000
+python -m postprocess smm/results/2025xxxxxxxx.tsv --tail 5000
 
-Output Files
-TSV Log (TIMESTAMP.tsv)
-Detailed step-by-step training log with columns:
+##Configuration Parameters (JSON)
 
-timestamp, phase, step
-addend1, operator, addend2, target, predicted
-confidence, used_finger_counting, loss
-confidence_criterion, learning_rate
+total_steps (default 50000)
 
-Console Output (TIMESTAMP.out)
-Human-readable training progress including:
+learning_rate (default 0.005), learning_rate_floor (0.002), lr_decay (0.9999)
 
-Curriculum configuration
-Step-by-step progress (every 1000 steps)
-Comprehensive final testing
-Counting vs addition conflict analysis
+hidden_size (64)
 
-Example Results
-The model learns to resolve the counting-addition conflict:
-Counting vs Addition conflict analysis:
-  2 -> ? = 3 (expected 3) conf:0.892
-  2 + 2 = 4 (expected 4) conf:0.856
-    Conflict resolved: True (counting: True, addition: True)
-Performance typically reaches:
+embed_size (8)
 
-Counting: 90-100% accuracy
-Addition: 70-90% accuracy (depending on complexity)
+gate_freeze_until_step (3000)
 
-Research Applications
-This model is useful for studying:
+addition_start_step (12000), counting_fade_rate (0.0001)
 
-Curriculum learning effects in neural networks
-Catastrophic forgetting and conflict resolution
-Confidence estimation in neural networks
-Continuous vs batch learning differences
-Attention mechanisms in simple arithmetic
+confidence_criterion_start (0.9), confidence_floor (0.75)
 
-File Structure
-smm/
-├── smm2.py                 # Main SMM implementation
-├── plot_smm_progress.py    # Visualization tool
-├── results/                # Generated logs and outputs
-│   ├── TIMESTAMP.tsv      # Training data logs
-│   └── TIMESTAMP.out      # Console output logs
-└── README.md              # This file
-Contributing
-The SMM is designed to be easily extensible:
+checkpoint_interval (10000), resume_from_checkpoint (path or null)
 
-Add new operators or number ranges
-Modify the curriculum learning schedule
-Experiment with different architectures
-Add new conflict scenarios
+##Outputs
 
-Citation
-If you use this code in research, please cite the Small Math Model project and describe the specific configuration used.
+TSV logs and .out files under results/ (timestamped).
+
+Optional .npz checkpoints (resumable).
+
+Plots for accuracy, confidence, and finger counting usage (via eval.py).
+
+Notes
+
+##Analysis
+
+See an1.py in /results
+
+##Model initialization currently uses a fixed RNG seed; reproducibility can be extended by overriding with your own seed.
+
+This codebase is intended both as a modernization of Shrager et al.’s early symbolic–connectionist work and as a stepping stone toward richer analogues of LLM training.
+
+##Next Steps
+
+Future extensions will explore:
+
+Multiple strategies per operator with a learned policy head (e.g., FARRA/UMA).
+
+Replacement of quasi-attention with a true Transformer block.
+
+Richer vocabularies and multi-digit tokenization.

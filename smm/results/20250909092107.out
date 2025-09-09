@@ -1,0 +1,55 @@
+=== Small Math Model (Content-Gated) ===
+Network: 24 -> 64 -> 12
+Training steps: 15000   LR: 0.005
+Gate freeze until: 3000   Confidence start: 0.9 (floor 0.75)
+
+--- Testing Model ---
+1 -> ? = 10 (expected 2) ✗ conf:0.000 finger:True
+3 -> ? = 8 (expected 4) ✗ conf:0.000 finger:True
+5 -> ? = 8 (expected 6) ✗ conf:0.000 finger:True
+2 -> 3 = 12 (expected 4) ✗ conf:0.000 finger:True
+4 -> 5 = 8 (expected 6) ✗ conf:0.000 finger:True
+1 + 2 = 3 (expected 3) ✓ conf:0.000 finger:True
+2 + 2 = 4 (expected 4) ✓ conf:0.000 finger:True
+3 + 4 = 7 (expected 7) ✓ conf:0.000 finger:True
+4 + 5 = 9 (expected 9) ✓ conf:0.000 finger:True
+5 + 5 = 10 (expected 10) ✓ conf:0.000 finger:True
+
+Step  1000: TF=0.100 CF=2.4 CX=3.1 W=1.00 Loss=2.655890 LR=0.004540 CC=0.817 (0.2s)
+Step  2000: TF=0.200 CF=3.6 CX=3.5 W=0.14 Loss=0.769283 LR=0.004108 CC=0.750 (0.4s)
+Step  3000: TF=0.300 CF=3.2 CX=4.5 W=0.80 Loss=2.069205 LR=0.003717 CC=0.750 (0.9s)
+Step  4000: TF=0.400 CF=3.6 CX=4.2 W=0.70 Loss=1.118037 LR=0.003363 CC=0.750 (1.6s)
+Step  5000: TF=0.500 CF=4.0 CX=2.6 W=0.60 Loss=0.221036 LR=0.003043 CC=0.750 (2.6s)
+Step  6000: TF=0.600 CF=4.4 CX=5.4 W=0.50 Loss=0.503606 LR=0.002753 CC=0.750 (3.7s)
+Step  7000: TF=0.700 CF=4.8 CX=5.9 W=0.40 Loss=1.900117 LR=0.002491 CC=0.750 (4.9s)
+Step  8000: TF=0.800 CF=8.4 CX=9.2 W=1.00 Loss=0.747311 LR=0.002254 CC=0.750 (6.4s)
+Step  9000: TF=0.900 CF=9.2 CX=9.1 W=1.00 Loss=0.571579 LR=0.002040 CC=0.750 (7.9s)
+Step 10000: TF=1.000 CF=10.0 CX=9.9 W=1.00 Loss=0.073103 LR=0.002000 CC=0.750 (9.3s)
+[ckpt] saved: results/20250909092107_step10000.npz
+Step 11000: TF=1.000 CF=6.0 CX=6.6 W=0.20 Loss=0.094790 LR=0.002000 CC=0.750 (9.9s)
+Step 12000: TF=1.000 CF=6.0 CX=4.7 W=0.20 Loss=0.018318 LR=0.002000 CC=0.750 (10.2s)
+Step 13000: TF=1.000 CF=10.0 CX=9.2 W=1.00 Loss=0.011106 LR=0.002000 CC=0.750 (10.5s)
+Step 14000: TF=1.000 CF=6.0 CX=6.0 W=0.20 Loss=0.025427 LR=0.002000 CC=0.750 (10.8s)
+Step 15000: TF=1.000 CF=10.0 CX=11.2 W=1.00 Loss=0.161869 LR=0.002000 CC=0.750 (11.1s)
+
+=== FINAL COMPREHENSIVE TESTING ===
+Counting tests:
+1 -> ? = 2 (expected 2) ✓ conf:0.982
+2 -> ? = 3 (expected 3) ✓ conf:0.998
+3 -> ? = 4 (expected 4) ✓ conf:0.995
+4 -> ? = 5 (expected 5) ✓ conf:0.952
+5 -> ? = 6 (expected 6) ✓ conf:0.959
+
+All addition combinations (with finger counting):
+     1    2    3    4    5
+1: 2✓   3✓F  2✗   5✓F  6✓F 
+2: 3✓F  3✗   5✓F  6✓F  7✓F 
+3: 4✓F  5✓F  6✓F  9✗   10✗ 
+4: 9✗   6✓F  9✗   9✗   9✓  
+5: 6✓F  7✓F  10✗  9✓   10✓ 
+
+Legend: [predicted][✓/✗][F=finger counting used]
+
+=== FINGER COUNTING STATS ===
+Total finger sub-steps: 38184
+

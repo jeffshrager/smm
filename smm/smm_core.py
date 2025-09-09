@@ -196,6 +196,19 @@ class SMM:
         self.step += 1
         return float(loss)
 
+    def learn_addition_with_finger_counting(
+        self, addend1: int, addend2: int,
+        log_fn=None, phase: str = "training",
+    ) -> float:
+        """Learn addition using finger counting before training on the result."""
+        finger_result, _, _ = self.predict_with_finger_counting(
+            addend1, "+", addend2, log_fn, phase
+        )
+        return self.learn_single(
+            addend1, "+", addend2, finger_result,
+            log_fn=log_fn, phase=phase, finger_phase="main_addition",
+        )
+
     def get_state(self):
         return {
             "W1": self.W1,

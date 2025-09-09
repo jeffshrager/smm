@@ -79,6 +79,19 @@ def train_loop(cfg):
     # Setup logging
     ftsv, fout, run_id = setup_logging(cfg['outdir'])
 
+    # Dump full effective configuration into the log and a JSON sidecar
+    try:
+        _cfg_json = json.dumps(cfg, sort_keys=True, indent=2)
+        log_output(fout, '=== EFFECTIVE CONFIGURATION ===')
+        for line in _cfg_json.splitlines():
+            log_output(fout, line)
+        # Also save a complete JSON copy next to the logs
+        _config_dump_path = os.path.join(cfg['outdir'], f"{run_id}_effective_config.json")
+        with open(_config_dump_path, 'w') as _cf:
+            _cf.write(_cfg_json)
+    except Exception as _e:
+        log_output(fout, f'[WARN] Failed to dump configuration: {_e}')
+
     # Curriculum
     cur = GaussianCurriculum()
     cur.total_steps = cfg['total_steps']
@@ -194,6 +207,14 @@ def main():
 
     cfg = load_json(args.config)
     cfg['outdir'] = args.outdir
+
+    # Keep provenance for logging
+    cfg['_config_path'] = args.config
+    try:
+        cfg['_raw_config'] = load_json(args.config)
+    except Exception:
+        cfg['_raw_config'] = None
+    cfg['_overrides'] = args.override
 
     # defaults for any missing keys
     defaults = dict(

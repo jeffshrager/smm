@@ -1,0 +1,31 @@
+{
+  "_config_path": "configs/fast_15k.json",
+  "_overrides": [],
+  "_raw_config": {
+    "addition_start_step": 1000,
+    "checkpoint_interval": 10000,
+    "confidence_criterion_start": 0.9,
+    "confidence_floor": 0.75,
+    "counting_fade_rate": 0.0001,
+    "gate_freeze_until_step": 3000,
+    "hidden_size": 64,
+    "learning_rate": 0.005,
+    "learning_rate_floor": 0.002,
+    "lr_decay": 0.9999,
+    "resume_from_checkpoint": null,
+    "total_steps": 15000
+  },
+  "addition_start_step": 1000,
+  "checkpoint_interval": 10000,
+  "confidence_criterion_start": 0.9,
+  "confidence_floor": 0.75,
+  "counting_fade_rate": 0.0001,
+  "gate_freeze_until_step": 3000,
+  "hidden_size": 64,
+  "learning_rate": 0.005,
+  "learning_rate_floor": 0.002,
+  "lr_decay": 0.9999,
+  "outdir": "results",
+  "resume_from_checkpoint": null,
+  "total_steps": 15000
+}

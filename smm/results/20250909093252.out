@@ -1,0 +1,87 @@
+=== EFFECTIVE CONFIGURATION ===
+{
+  "_config_path": "configs/fast_15k.json",
+  "_overrides": [],
+  "_raw_config": {
+    "addition_start_step": 1000,
+    "checkpoint_interval": 10000,
+    "confidence_criterion_start": 0.9,
+    "confidence_floor": 0.75,
+    "counting_fade_rate": 0.0001,
+    "gate_freeze_until_step": 3000,
+    "hidden_size": 64,
+    "learning_rate": 0.005,
+    "learning_rate_floor": 0.002,
+    "lr_decay": 0.9999,
+    "resume_from_checkpoint": null,
+    "total_steps": 15000
+  },
+  "addition_start_step": 1000,
+  "checkpoint_interval": 10000,
+  "confidence_criterion_start": 0.9,
+  "confidence_floor": 0.75,
+  "counting_fade_rate": 0.0001,
+  "gate_freeze_until_step": 3000,
+  "hidden_size": 64,
+  "learning_rate": 0.005,
+  "learning_rate_floor": 0.002,
+  "lr_decay": 0.9999,
+  "outdir": "results",
+  "resume_from_checkpoint": null,
+  "total_steps": 15000
+}
+=== Small Math Model (Content-Gated) ===
+Network: 24 -> 64 -> 12
+Training steps: 15000   LR: 0.005
+Gate freeze until: 3000   Confidence start: 0.9 (floor 0.75)
+
+--- Testing Model ---
+1 -> ? = 10 (expected 2) ✗ conf:0.000 finger:True
+3 -> ? = 8 (expected 4) ✗ conf:0.000 finger:True
+5 -> ? = 8 (expected 6) ✗ conf:0.000 finger:True
+2 -> 3 = 12 (expected 4) ✗ conf:0.000 finger:True
+4 -> 5 = 8 (expected 6) ✗ conf:0.000 finger:True
+1 + 2 = 3 (expected 3) ✓ conf:0.000 finger:True
+2 + 2 = 4 (expected 4) ✓ conf:0.000 finger:True
+3 + 4 = 7 (expected 7) ✓ conf:0.000 finger:True
+4 + 5 = 9 (expected 9) ✓ conf:0.000 finger:True
+5 + 5 = 10 (expected 10) ✓ conf:0.000 finger:True
+
+Step  1000: TF=0.100 CF=2.4 CX=4.1 W=1.00 Loss=2.685136 LR=0.004540 CC=0.817 (0.2s)
+Step  2000: TF=0.200 CF=2.8 CX=3.4 W=0.90 Loss=0.753756 LR=0.004108 CC=0.750 (0.4s)
+Step  3000: TF=0.300 CF=3.2 CX=4.5 W=0.80 Loss=1.164967 LR=0.003717 CC=0.750 (0.9s)
+Step  4000: TF=0.400 CF=3.6 CX=4.3 W=0.70 Loss=1.046808 LR=0.003363 CC=0.750 (1.6s)
+Step  5000: TF=0.500 CF=4.0 CX=5.3 W=0.60 Loss=0.065527 LR=0.003043 CC=0.750 (2.5s)
+Step  6000: TF=0.600 CF=6.8 CX=7.7 W=0.71 Loss=1.388026 LR=0.002753 CC=0.750 (3.7s)
+Step  7000: TF=0.700 CF=4.8 CX=4.9 W=0.40 Loss=0.028358 LR=0.002491 CC=0.750 (5.1s)
+Step  8000: TF=0.800 CF=8.4 CX=9.1 W=1.00 Loss=3.550898 LR=0.002254 CC=0.750 (6.5s)
+Step  9000: TF=0.900 CF=9.2 CX=9.3 W=1.00 Loss=0.786773 LR=0.002040 CC=0.750 (8.4s)
+Step 10000: TF=1.000 CF=10.0 CX=10.2 W=1.00 Loss=0.070564 LR=0.002000 CC=0.750 (9.6s)
+[ckpt] saved: results/20250909093252_step10000.npz
+Step 11000: TF=1.000 CF=10.0 CX=9.7 W=1.00 Loss=0.065663 LR=0.002000 CC=0.750 (9.9s)
+Step 12000: TF=1.000 CF=10.0 CX=11.1 W=1.00 Loss=2.783788 LR=0.002000 CC=0.750 (10.2s)
+Step 13000: TF=1.000 CF=10.0 CX=9.8 W=1.00 Loss=0.012602 LR=0.002000 CC=0.750 (10.5s)
+Step 14000: TF=1.000 CF=10.0 CX=9.5 W=1.00 Loss=0.009306 LR=0.002000 CC=0.750 (10.8s)
+Step 15000: TF=1.000 CF=6.0 CX=6.0 W=0.20 Loss=0.023662 LR=0.002000 CC=0.750 (11.0s)
+
+=== FINAL COMPREHENSIVE TESTING ===
+Counting tests:
+1 -> ? = 2 (expected 2) ✓ conf:0.981
+2 -> ? = 3 (expected 3) ✓ conf:0.999
+3 -> ? = 4 (expected 4) ✓ conf:0.995
+4 -> ? = 5 (expected 5) ✓ conf:0.993
+5 -> ? = 6 (expected 6) ✓ conf:0.952
+
+All addition combinations (with finger counting):
+     1    2    3    4    5
+1: 2✓F  3✓F  4✓F  5✓F  6✓F 
+2: 3✓   3✗   5✓F  5✗   7✓F 
+3: 4✓F  5✓F  6✓F  9✗   10✗ 
+4: 5✓F  5✗   9✗   9✗   9✓  
+5: 6✓F  7✓F  10✗  9✓   10✓ 
+
+Legend: [predicted][✓/✗][F=finger counting used]
+
+=== FINGER COUNTING STATS ===
+Total finger sub-steps: 35420
+

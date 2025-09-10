@@ -21,6 +21,11 @@ Optional:
   --strict-length           # error if vectors differ in length (default on)
   --allow-truncate          # truncate to min length across runs (disables strict)
   --allow-pad               # pad to max length across runs with '' (disables strict)
+
+Example:
+
+python3 sweep_reduce.py --sweep-dir results/addstart_sweep --param addition_start_step --allow-truncate
+
 """
 
 import argparse

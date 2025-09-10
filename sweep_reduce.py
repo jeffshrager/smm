@@ -39,6 +39,52 @@ from typing import List, Tuple, Dict, Any, Optional
 # -------------------------
 # EDIT THIS COMPUTATION
 # -------------------------
+
+def compute_vector(tsv_path: str) -> Tuple[str, List[float]]:
+    """
+    Compute a windowed average correctness over the training steps.
+
+    Correctness = 1.0 if predicted == target else 0.0
+    Then averaged over a fixed window (2000 steps).
+    """
+
+    comp_name = "correctness2000"
+    window = 2000
+    preds: List[str] = []
+    targets: List[str] = []
+
+    import csv
+    with open(tsv_path, "r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        # normalize fieldnames to lower
+        fmap = {name.lower(): name for name in reader.fieldnames or []}
+        if "predicted" not in fmap or "target" not in fmap:
+            raise RuntimeError(f"Need 'predicted' and 'target' in {tsv_path}")
+        col_pred = fmap["predicted"]
+        col_tgt = fmap["target"]
+        for row in reader:
+            preds.append(row[col_pred])
+            targets.append(row[col_tgt])
+
+    # compute correctness series
+    corr = [1.0 if p == t else 0.0 for p, t in zip(preds, targets)]
+
+    # moving average with fixed window size
+    avg: List[float] = []
+    s = 0.0
+    for i, c in enumerate(corr):
+        s += c
+        if i >= window:
+            s -= corr[i - window]
+            avg.append(s / window)
+        elif i == window - 1:
+            avg.append(s / window)
+        else:
+            avg.append(s / (i + 1))  # before window fills, use partial average
+
+    return comp_name, avg
+
+'''
 def compute_vector(tsv_path: str) -> Tuple[str, List[Any]]:
     """
     Given a single run TSV, return (computation_name, vector).
@@ -65,7 +111,7 @@ def compute_vector(tsv_path: str) -> Tuple[str, List[Any]]:
             vector.append(row.get(colname, ""))
 
     return comp_name, vector
-
+'''
 
 # -------------------------
 # Helpers

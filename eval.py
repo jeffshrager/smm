@@ -1,6 +1,41 @@
 import argparse, pandas as pd, numpy as np, os, json
 import matplotlib.pyplot as plt
 
+"""
+Evaluation utilities
+--------------------
+Reads a TSV log file from training and summarizes performance over time.
+Optionally saves plots showing learning dynamics.
+
+Workflow:
+1. Load TSV (columns from train.py).
+2. Derive helper columns:
+   - is_correct: predicted == target
+   - is_add: operator == '+'
+   - is_next: operator == '->'
+   - epoch: step // steps_per_epoch (configurable)
+3. Group by (epoch, operator) and compute:
+   - acc: mean accuracy
+   - finger: mean finger-counting usage
+   - conf: mean confidence
+   - n: number of examples
+4. If save_plots:
+   - Accuracy curves per operator (acc.png).
+   - Finger-counting usage over time for addition (finger.png).
+   - Confidence curves per operator (conf.png).
+   Plots are written to the same directory as the TSV by default.
+
+CLI:
+    python eval.py run.tsv --steps-per-epoch 1000
+    --no-plots disables figure generation (prints JSON only).
+
+Purpose:
+- Provides a lightweight way to inspect how accuracy, reliance on
+  finger counting, and confidence evolve during training.
+- Complements postprocess.py (quick tail-window stats) by showing
+  full training trajectories.
+"""
+
 def summarize(tsv_path, steps_per_epoch=1000, save_plots=True, outdir=None):
     df = pd.read_csv(tsv_path, sep="\t")
     df['is_correct'] = (df['target'] == df['predicted']).astype(int)

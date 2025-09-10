@@ -89,6 +89,45 @@ def train_loop(cfg):
         log_output(fout, f'[WARN] Failed to dump configuration: {_e}')
 
     # Curriculum
+
+    """
+    Curriculum setup
+    ----------------
+    The curriculum controls *which kinds of problems* the model sees at different
+    stages of training. This uses a GaussianCurriculum, which gradually shifts the
+    distribution of sampled problems from easy "counting" (n -> n+1) toward harder
+    addition (a + b).
+
+    Key parameters configured here (all come from the JSON config):
+    - total_steps: length of training run.
+    - addition_start_step: training step at which addition problems begin to appear.
+    - counting_fade_rate: how quickly pure counting fades once addition is introduced.
+    - tf_rate_counting / tf_rate_addition: rate constants for the "time flow" schedule
+      that drives complexity means separately for counting vs. addition.
+    - cf_variance / cx_variance: variances for the Gaussian samples of "complexity".
+      (cf = curriculum flow mean; cx = sampled complexity).
+    - cf_min_complexity / cf_max_complexity: bounds for counting problems’ difficulty.
+    - addition_cf_min / addition_cf_max: bounds for addition problems’ difficulty.
+    - counting_focus_steps: optional early steps where only counting is emphasized.
+    - Optional overrides: cf_sd and cx_sd can be supplied as standard deviations;
+      if present they overwrite cf_variance/cx_variance.
+
+    Mechanism:
+    - At each training step, the curriculum computes a "time flow" scalar in [0,1]
+      that increases smoothly with step.
+    - From this, it derives target means for counting and addition complexities.
+    - Complexity for the current step is sampled from a Gaussian around the mean.
+    - Task weights (counting_w, addition_w) determine whether to serve a counting or
+      addition problem. Counting fades out once addition is introduced, but not to zero.
+    - The selected problem (details, target, complexity) is then passed to the model.
+
+    Rationale:
+    This scheduling prevents the model from being overwhelmed by addition too early,
+    ensures it first stabilizes on simple counting, and then gradually expands its
+    competence to harder tasks. The Gaussian noise around complexity means that the
+    model sees a spread of difficulties rather than a rigid curriculum.
+    """
+
     cur = GaussianCurriculum()
     cur.total_steps = cfg['total_steps']
     cur.addition_start_step = cfg['addition_start_step']
@@ -112,12 +151,79 @@ def train_loop(cfg):
     cur.counting_focus_steps = cfg['counting_focus_steps']
 
     # Model
+
+    """
+    Model setup
+    -----------
+    Instantiate the Small Math Model (SMM) with the chosen hidden size, learning rate,
+    and gate-freeze schedule. At this stage the model has randomly initialized weights
+    and embeddings.
+
+    Parameters injected from config:
+    - hidden_size: width of the single hidden (ReLU) layer.
+    - learning_rate: initial SGD step size for all parameters.
+    - gate_freeze_until_step: number of steps to keep the gating matrix/bias frozen
+      at their neutral (zero) initialization. This prevents the gating mechanism from
+      dominating too early, forcing the embeddings and hidden layer to learn first.
+
+    Other model properties (embed_size, vocab sizes, etc.) use defaults set inside
+    smm_core.SMM unless overridden here.
+
+    Confidence criterion:
+    - smm.confidence_criterion is initialized from config['confidence_criterion_start'].
+      This is the threshold below which the model will fall back to finger counting.
+      Over time, the criterion is annealed downward (later in the training loop),
+      so that finger counting is phased out once the model becomes more reliable.
+
+    Notes:
+    - At this point the model is structurally complete but has no knowledge; all
+      competence comes from the iterative calls to learn_single / learn_addition_with_finger_counting
+      during the training loop.
+    - The finger counting helper itself is attached later, after we define the logging
+      callback, so smm.finger_counter is still None here.
+    """
+
     smm = SMM(hidden_size=cfg['hidden_size'],
               learning_rate=cfg['learning_rate'],
               gate_freeze_until_step=cfg['gate_freeze_until_step'])
     smm.confidence_criterion = cfg['confidence_criterion_start']
 
     # Finger counter logging callback (matches smm_core.learn_single log_fn signature)
+
+    """
+    Finger counter logging callback
+    -------------------------------
+    Define a wrapper function `_log_cb` that matches the signature expected by
+    SMM.learn_single(..., log_fn=...). This callback takes the raw arguments from
+    a learning step and writes a structured row into the TSV log.
+
+    Arguments unpacked from the model:
+    - a1, op, a2: the input operands and operator.
+    - target: ground-truth answer.
+    - predicted: model’s chosen answer (argmax).
+    - probs: full probability distribution over outputs.
+    - loss: cross-entropy loss for this step.
+    - phase: label for the training phase ("continuous", "finger_counting", etc.).
+    - finger_phase: optional subphase within finger counting (setup/add/verify).
+
+    Additional values computed here:
+    - conf: confidence score = 1 - (entropy / max_entropy). This normalizes how
+      peaked the distribution is, with 1 = perfect certainty, 0 = uniform guess.
+    - step: global step counter of the model.
+    - used_fc: boolean flag marking if this step involved finger counting
+      (either explicitly phase=="finger_counting" or via a nonempty finger_phase).
+
+    The callback then calls `log_step(...)`, which appends a TSV row with all of
+    these fields plus current learning rate and confidence threshold.
+
+    Why this exists:
+    - It decouples model training from logging I/O, keeping the model clean.
+    - It guarantees consistent logging format across normal training steps and
+      finger counting phases.
+    - It allows `FingerCounter` to call learn_single with a log_fn and still
+      produce identical rows in the run log.
+    """
+
     def _log_cb(*args, **kw):
         a1, op, a2, target, predicted, probs, loss, phase, finger_phase = args
         conf = calculate_confidence(probs, smm.output_size)
@@ -148,6 +254,46 @@ def train_loop(cfg):
     quick_report(fout, smm)
 
     # Train
+
+    """
+    Training loop
+    -------------
+    Core loop that runs for `total_steps` iterations. At each step:
+    
+    1. Curriculum sampling:
+       - Calls `cur.select_problem(...)` to choose either a counting (n -> n+1)
+         or addition (a + b) problem, guided by the Gaussian curriculum schedule.
+       - Returns (problem, time_flow, cf_mean, cx, weight). If no problem is valid,
+         the loop skips the step.
+
+    2. Learning:
+       - For addition ("+"), calls smm.learn_addition_with_finger_counting(...),
+         which may fall back to the FingerCounter strategy before updating weights.
+       - For counting ("->"), calls smm.learn_single(...) directly.
+
+    3. Annealing:
+       - Learning rate decays multiplicatively by lr_decay, floored at
+         learning_rate_floor. This prevents the step size from shrinking to zero.
+       - Confidence criterion decays multiplicatively by 0.9999, floored at
+         confidence_floor. This gradually raises the bar for trusting the model
+         alone, phasing out reliance on finger counting.
+
+    4. Logging:
+       - Every 1000 steps, writes a summary line to the .out file including:
+         step number, curriculum stats (TF, CF, CX, W), loss, learning rate,
+         confidence criterion, and elapsed wallclock time.
+       - Per-step detailed logs are already written via the log callback.
+
+    Notes
+    -----
+    - The loop starts from smm.step if resuming; otherwise from 0.
+    - Counting and addition problem universes are pre-generated at the top of
+      train_loop (see data_gen.py).
+    - The loop terminates naturally when `step == total_steps`.
+    - After training completes, both the TSV and .out log files are closed,
+      and the run_id (timestamp string) is returned to the caller.
+    """
+
     start = time.time()
     for step in range(getattr(smm, "step", 0), int(cur.total_steps)):
         prob, t, cf_mean, cx, w = cur.select_problem(step, counting, addition)
@@ -169,6 +315,28 @@ def train_loop(cfg):
             )
 
         # LR & confidence anneal
+
+        """
+        LR & confidence annealing
+        -------------------------
+        Two multiplicative decays applied every step:
+
+        - Learning rate:
+            smm.learning_rate = max(floor, smm.learning_rate * lr_decay)
+          → Step size shrinks gradually, but never below learning_rate_floor.
+          Purpose: stabilize training as the model converges.
+
+        - Confidence criterion:
+            smm.confidence_criterion = max(floor, smm.confidence_criterion * 0.9999)
+          → Threshold for "use finger counting" shrinks toward the floor.
+          Purpose: early on the model defers often to finger counting,
+          but over time the bar lowers so it must rely on itself more.
+
+        Together, these schedules reduce overfitting risk (via smaller LR)
+        and encourage independence from the fallback strategy (via lower
+        confidence threshold).
+        """
+
         smm.learning_rate = max(cfg['learning_rate_floor'], smm.learning_rate * cfg['lr_decay'])
         smm.confidence_criterion = max(cfg['confidence_floor'], smm.confidence_criterion * 0.9999)
 

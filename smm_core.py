@@ -1,9 +1,6 @@
 import numpy as np
 from typing import Optional, Tuple
 
-
-
-
 def softmax(x: np.ndarray) -> np.ndarray:
     if x.ndim == 1:
         x = x.reshape(1, -1)
@@ -11,17 +8,14 @@ def softmax(x: np.ndarray) -> np.ndarray:
     e = np.exp(x)
     return e / (np.sum(e, axis=1, keepdims=True) + 1e-12)
 
-
 def relu(x: np.ndarray) -> np.ndarray:
     return np.maximum(0, x)
-
 
 def calculate_confidence(output_probs: np.ndarray, output_size: int) -> float:
     eps = 1e-10
     entropy = -np.sum(output_probs * np.log(output_probs + eps))
     max_entropy = np.log(output_size)
     return 1.0 - (entropy / max_entropy)
-
 
 class SMM:
     """
@@ -50,6 +44,47 @@ class SMM:
         rng = np.random.RandomState(123)
 
         # Embeddings
+
+        """
+        Embeddings
+        ----------
+        Two separate embedding tables are initialized here:
+
+        - number_embeddings: shape (num_vocab, embed_size).
+          Each integer token 1..num_vocab is mapped to a learnable vector.
+          Example: number 3 → number_embeddings[2].
+
+        - operator_embeddings: shape (operator_size, embed_size).
+          Two operators are supported:
+            '+'  → operator_embeddings[0]
+            '->' → operator_embeddings[1]
+
+        Both tables are initialized with small random Gaussian values (std ≈ 0.1)
+        to break symmetry.
+
+        Usage in the model:
+        - The helpers encode_number() and encode_operator() return rows from these
+          tables.
+        - encode_input(a1, op, a2) concatenates the three vectors
+          [embed(a1), embed(op), embed(a2)] into a single input of length
+          3 * embed_size.
+        - If a1 or a2 is None, encode_input inserts a zero vector of length embed_size
+          for that slot.
+
+        Training updates:
+        - During learn_single(), gradients are propagated back into whichever
+          embeddings were actually used in the input.
+        - Only the rows corresponding to the specific tokens (numbers/operators)
+          from the current example are updated, mimicking how token embeddings
+          are trained in language models.
+
+        Rationale:
+        Embeddings let the model discover distributed representations of numbers
+        and operators, rather than treating them as one-hot or fixed encodings.
+        This mirrors how LLMs learn token embeddings and allows the model to
+        capture similarities between tokens (e.g., consecutive numbers).
+        """
+
         self.number_embeddings = rng.randn(self.num_vocab, self.embed_size) * 0.1
         self.operator_embeddings = rng.randn(self.operator_size, self.embed_size) * 0.1
 
@@ -71,6 +106,41 @@ class SMM:
         self.finger_counter = None  # set externally
 
     # ---------- encoding helpers ----------
+
+        """
+        Encoding helpers
+        ----------------
+        These methods provide a clean interface from symbolic inputs
+        (numbers, operators) to their vector embeddings:
+
+        - encode_number(num: int) → np.ndarray
+          Returns the embedding for number `num` in [1..num_vocab].
+          Raises ValueError if out of range.
+
+        - encode_operator(op: str) → np.ndarray
+          Returns the embedding for an operator token.
+          Currently supported:
+            '+'  → row 0 of operator_embeddings
+            '->' → row 1 of operator_embeddings
+          Raises ValueError if the operator is unknown.
+
+        - encode_input(a1, op, a2) → np.ndarray
+          Concatenates three embeddings into a single input vector of length
+          3 * embed_size:
+            [embed(a1), embed(op), embed(a2)]
+          If a1 or a2 is None, a zero vector of length embed_size is substituted
+          for that slot.
+
+        Purpose:
+        - Keeps the rest of the model agnostic to raw integers/strings.
+        - Provides consistent handling of missing operands (None → zero vector).
+        - Mirrors the token-to-embedding pipeline in large language models.
+
+        Notes:
+        - These helpers are used by predict(), learn_single(), and other methods
+          whenever a symbolic problem (like "2 + 3") needs to be fed into the model.
+        """
+
     def encode_number(self, num: int) -> np.ndarray:
         if num < 1 or num > self.num_vocab:
             raise ValueError(f"Number {num} out of range 1-{self.num_vocab}")
@@ -102,6 +172,51 @@ class SMM:
         return np.concatenate([a1, op, a2])
 
     # ---------- forward / predict ----------
+
+        """
+        Forward and prediction
+        ----------------------
+        These methods convert an encoded input vector into model outputs.
+
+        - forward(x: np.ndarray) → (probs, hidden, gate)
+          * x: concatenated embedding vector of shape (3 * embed_size,).
+          * Applies the learned gating mechanism:
+              s = x @ attn_A + attn_b
+              gate = sigmoid(s)
+              attended = x * gate
+          * Passes attended input through:
+              - Linear layer (W1, b1) + ReLU → hidden representation (h).
+              - Linear projection (W_out) → intermediate representation (r).
+              - Dot with output_embeddings → logits for each possible output.
+              - Softmax → probability distribution over outputs.
+          * Returns:
+              probs: softmax distribution (1 × output_size)
+              h: hidden vector (1 × hidden_size)
+              gate: per-dimension gate activations (1 × input_size)
+
+        - predict(a1, op, a2) → (pred_val, conf, use_fingers)
+          * Encodes inputs via encode_input(), calls forward().
+          * Computes confidence using normalized entropy.
+          * Selects prediction as argmax(probs).
+          * Returns:
+              pred_val: predicted integer (1..output_size)
+              conf: confidence score in [0,1]
+              use_fingers: True if conf < confidence_criterion
+
+        - predict_with_finger_counting(a1, op, a2, ...)
+          * Calls predict().
+          * If operator is '+' and confidence is below threshold,
+            uses the FingerCounter (if attached) to produce a “finger counting”
+            result instead of the raw model output.
+          * Returns (prediction, confidence, used_finger_flag).
+
+        Notes:
+        - The gating mechanism is key: it can emphasize or suppress dimensions of
+          the input embeddings, a simplified analogue of attention.
+        - Confidence drives the hybrid strategy: low confidence triggers
+          external reasoning (finger counting).
+        """
+
     def forward(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if x.ndim == 1:
             x = x.reshape(1, -1)
@@ -132,6 +247,48 @@ class SMM:
         return pred, conf, use_fingers
 
     # ---------- learning ----------
+
+    """
+    Learning: learn_single
+    ----------------------
+    Perform one supervised learning update for a single problem.
+
+    Workflow:
+    1. Encode input (a1, op, a2) → concatenated embeddings.
+    2. Forward pass → (probs, hidden, gate).
+    3. Construct one-hot target vector y for the correct answer.
+    4. Compute gradients manually (NumPy backprop):
+       - Output layer:
+         dZ2 = probs - y
+         Backprop to output_embeddings and W_out.
+       - Hidden layer:
+         Backprop through ReLU to W1 and b1.
+       - Gate:
+         Backprop through sigmoid gate to attn_A and attn_b.
+       - Embeddings:
+         Slice dx to update the specific number/operator embeddings used.
+    5. Apply SGD updates with current learning_rate.
+       Note: attn_A and attn_b are only updated once step ≥ gate_freeze_until_step.
+    6. Increment global step counter.
+
+    Logging:
+    - If log_fn is provided, it is called with (a1, op, a2, target,
+      predicted, probs, loss, phase, finger_phase). This allows external
+      logging without coupling I/O to the model.
+
+    Return:
+    - Scalar float(loss), the negative log-likelihood for this example.
+
+    Notes:
+    - This is the most complex part of the model: backprop is fully
+      implemented by hand in NumPy, unlike in auto-diff frameworks.
+    - Shape discipline is critical: all vectors are reshaped to (1, D)
+      to avoid accidental broadcasting.
+    - Only embeddings corresponding to the actual tokens in this input
+      are updated, just as in large language models.
+    - The “finger_phase” argument allows finger-counting sub-steps to be
+      distinguished in logs, even though the math is identical.
+    """
     def learn_single(self, a1: Optional[int], op: str, a2: Optional[int], target: int,
                      log_fn=None, phase="training", finger_phase=""):
         x = self.encode_input(a1, op, a2)
@@ -196,6 +353,41 @@ class SMM:
         self.step += 1
         return float(loss)
 
+    """
+    Learning: learn_addition_with_finger_counting
+    ---------------------------------------------
+    Special-case training routine for addition problems (a1 + a2).
+
+    Purpose:
+    - Integrates the external FingerCounter strategy into training.
+    - When the model is not yet confident on addition, finger counting
+      can provide a reliable target. The model then learns from this
+      target just like a normal supervised example.
+
+    Workflow:
+    1. Call predict_with_finger_counting(a1, "+", a2).
+       - If confidence < threshold and a FingerCounter is attached,
+         this will return the finger-counted result instead of the
+         model’s raw argmax prediction.
+    2. Use that result as the “target” for learn_single().
+       - This means the model is always trained toward the correct sum,
+         but the source of supervision may be finger counting early on.
+    3. Pass phase="training" and finger_phase="main_addition" to make
+       logs distinguish these events.
+
+    Return:
+    - Scalar float(loss) from learn_single().
+
+    Notes:
+    - This creates a feedback loop: the symbolic finger-counting
+      strategy scaffolds the model until its confidence is high enough
+      to stand alone.
+    - In logs, these steps appear under phase="training" with
+      finger_phase="main_addition", which analysts can filter on.
+    - This mechanism mirrors how children may first use external
+      counting strategies and later internalize them.
+    """
+
     def learn_addition_with_finger_counting(
         self, addend1: int, addend2: int,
         log_fn=None, phase: str = "training",
@@ -208,6 +400,38 @@ class SMM:
             addend1, "+", addend2, finger_result,
             log_fn=log_fn, phase=phase, finger_phase="main_addition",
         )
+
+    """
+    State serialization
+    -------------------
+    Methods for saving and restoring model parameters.
+
+    - get_state() -> dict
+      Returns a Python dictionary containing all learnable parameters
+      and key hyperparameters:
+        W1, b1, W_out, output_embeddings,
+        number_embeddings, operator_embeddings,
+        attn_A, attn_b,
+        confidence_criterion, learning_rate,
+        step, gate_freeze_until_step.
+
+      This dictionary is JSON-serializable if arrays are converted
+      to lists (handled externally), or NumPy can save it as a .npz.
+
+    - set_state(state: dict)
+      Restores attributes from a state dictionary.
+      Simply loops over key/value pairs and sets them as attributes
+      on the SMM instance.
+
+    Notes:
+    - These functions provide the same role as PyTorch’s
+      state_dict() / load_state_dict(), but with simpler naming.
+    - Enables checkpointing, resuming, or reproducing training runs.
+    - If you plan to integrate with existing ML tooling, consider
+      renaming these to match the more common `state_dict` convention.
+    - Because numpy arrays are mutable, deep copies may be needed
+      when storing multiple states simultaneously.
+    """
 
     def get_state(self):
         return {

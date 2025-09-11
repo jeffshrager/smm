@@ -1,10 +1,28 @@
+# For this we're going to start at smm/ and I have a subfolder called
+  experiments/
+
 (test) jeffshrager@MacBook-Pro-6 smm % ls
 ls
 experiments	repo
+
+# You want to create a dir inside experiments/ that tells you when the
+  experiment was done and (briefly) what it is, and put the config for
+  this experiment there. I've already done that, so all we need to do
+  is cd into that folder:
+
 (test) jeffshrager@MacBook-Pro-6 smm % cd experiments/20250900_DemoExperiment/
 cd experiments/20250900_DemoExperiment/
+
+# (test) By the way, is just my conda env that I used to do all
+  this. Not the greatest name! :-) Anyway, I had previous activated
+  the test env.
+
+# So now we're going to run the sweep. Note that we need to add the
+  ../../repo/ prefix everywhere. I'm sure clever use of paths could
+  simplify this.
+
 (test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ../../repo/tools/sweep_config.sh -t fast_15k_with_split_rates.json -p learning_rate -a 0.002 -s 0.001 -b 0.015 -o results --python "python3" --train ../../repo/model/train.py
-<ng_rate -a 0.002 -s 0.001 -b 0.015 -o results --python "python3" --train ../../repo/model/train.py
+
 [sweep] Template: fast_15k_with_split_rates.json
 [sweep] Param:    learning_rate
 [sweep] Range:    0.002 .. 0.015 (step 0.001)
@@ -39,8 +57,13 @@ Run complete: 20250911085639
 [sweep] v=0.015 -> cfg=.sweep_tmp/cfg_learning_rate=0p015.json outdir=results/learning_rate=0.015
 Run complete: 20250911085642
 [sweep] done.
+
+# Now we'll aggregate the sweep. Note that I'm using whatever
+  algorithm was left in sweep_reduce last. (FFF Should have these
+  named and arg-selected.)
+
 (test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --allow-truncate
-<./../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --allow-truncate
+
 [ok] Wrote results/learning_rate_correctness2000.tsv
 [info] Columns: 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.014, 0.015
 [src] 0.002: results/learning_rate=0.002/20250911085533.tsv
@@ -60,6 +83,10 @@ Run complete: 20250911085642
 (test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ls
 ls
 fast_15k_with_split_rates.json	results
+
+# This puts the aggregated result in the sweep results dir, which I
+  don't want to I move it up:
+
 (test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ls results/
 ls results/
 learning_rate=0.002			learning_rate=0.007			learning_rate=0.012
@@ -72,6 +99,9 @@ mv results/learning_rate_correctness2000.tsv .
 (test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ls
 ls
 fast_15k_with_split_rates.json		learning_rate_correctness2000.tsv	results
+
+# And finally plot the aggregated results, which creates a .pgn
+
 (test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/plot_sweep.py learning_rate_correctness2000.tsv --label "LR x Sweep Correctness 2000" --out learning_rate_correctness2000.png
 python3 ../../repo/tools/plot_sweep.py learning_rate_correctness2000.tsv --label "LR x Sweep Correctness 2000" --out learning_rate_correctness2000.png
 <abel "LR x Sweep Correctness 2000" --out learning_rate_correctness2000.png

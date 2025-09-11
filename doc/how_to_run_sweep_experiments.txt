@@ -1,0 +1,83 @@
+(test) jeffshrager@MacBook-Pro-6 smm % ls
+ls
+experiments	repo
+(test) jeffshrager@MacBook-Pro-6 smm % cd experiments/20250900_DemoExperiment/
+cd experiments/20250900_DemoExperiment/
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ../../repo/tools/sweep_config.sh -t fast_15k_with_split_rates.json -p learning_rate -a 0.002 -s 0.001 -b 0.015 -o results --python "python3" --train ../../repo/model/train.py
+<ng_rate -a 0.002 -s 0.001 -b 0.015 -o results --python "python3" --train ../../repo/model/train.py
+[sweep] Template: fast_15k_with_split_rates.json
+[sweep] Param:    learning_rate
+[sweep] Range:    0.002 .. 0.015 (step 0.001)
+[sweep] Out base: results
+
+[sweep] v=0.002 -> cfg=.sweep_tmp/cfg_learning_rate=0p002.json outdir=results/learning_rate=0.002
+Run complete: 20250911085533
+[sweep] v=0.003 -> cfg=.sweep_tmp/cfg_learning_rate=0p003.json outdir=results/learning_rate=0.003
+Run complete: 20250911085541
+[sweep] v=0.004 -> cfg=.sweep_tmp/cfg_learning_rate=0p004.json outdir=results/learning_rate=0.004
+Run complete: 20250911085550
+[sweep] v=0.005 -> cfg=.sweep_tmp/cfg_learning_rate=0p005.json outdir=results/learning_rate=0.005
+Run complete: 20250911085558
+[sweep] v=0.006 -> cfg=.sweep_tmp/cfg_learning_rate=0p006.json outdir=results/learning_rate=0.006
+Run complete: 20250911085605
+[sweep] v=0.007 -> cfg=.sweep_tmp/cfg_learning_rate=0p007.json outdir=results/learning_rate=0.007
+Run complete: 20250911085610
+[sweep] v=0.008 -> cfg=.sweep_tmp/cfg_learning_rate=0p008.json outdir=results/learning_rate=0.008
+Run complete: 20250911085615
+[sweep] v=0.009 -> cfg=.sweep_tmp/cfg_learning_rate=0p009.json outdir=results/learning_rate=0.009
+Run complete: 20250911085619
+[sweep] v=0.01 -> cfg=.sweep_tmp/cfg_learning_rate=0p01.json outdir=results/learning_rate=0.01
+Run complete: 20250911085623
+[sweep] v=0.011 -> cfg=.sweep_tmp/cfg_learning_rate=0p011.json outdir=results/learning_rate=0.011
+Run complete: 20250911085628
+[sweep] v=0.012 -> cfg=.sweep_tmp/cfg_learning_rate=0p012.json outdir=results/learning_rate=0.012
+Run complete: 20250911085631
+[sweep] v=0.013 -> cfg=.sweep_tmp/cfg_learning_rate=0p013.json outdir=results/learning_rate=0.013
+Run complete: 20250911085636
+[sweep] v=0.014 -> cfg=.sweep_tmp/cfg_learning_rate=0p014.json outdir=results/learning_rate=0.014
+Run complete: 20250911085639
+[sweep] v=0.015 -> cfg=.sweep_tmp/cfg_learning_rate=0p015.json outdir=results/learning_rate=0.015
+Run complete: 20250911085642
+[sweep] done.
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --allow-truncate
+<./../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --allow-truncate
+[ok] Wrote results/learning_rate_correctness2000.tsv
+[info] Columns: 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.014, 0.015
+[src] 0.002: results/learning_rate=0.002/20250911085533.tsv
+[src] 0.003: results/learning_rate=0.003/20250911085541.tsv
+[src] 0.004: results/learning_rate=0.004/20250911085550.tsv
+[src] 0.005: results/learning_rate=0.005/20250911085558.tsv
+[src] 0.006: results/learning_rate=0.006/20250911085605.tsv
+[src] 0.007: results/learning_rate=0.007/20250911085610.tsv
+[src] 0.008: results/learning_rate=0.008/20250911085615.tsv
+[src] 0.009: results/learning_rate=0.009/20250911085619.tsv
+[src] 0.01: results/learning_rate=0.01/20250911085623.tsv
+[src] 0.011: results/learning_rate=0.011/20250911085628.tsv
+[src] 0.012: results/learning_rate=0.012/20250911085631.tsv
+[src] 0.013: results/learning_rate=0.013/20250911085636.tsv
+[src] 0.014: results/learning_rate=0.014/20250911085639.tsv
+[src] 0.015: results/learning_rate=0.015/20250911085642.tsv
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ls
+ls
+fast_15k_with_split_rates.json	results
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ls results/
+ls results/
+learning_rate=0.002			learning_rate=0.007			learning_rate=0.012
+learning_rate=0.003			learning_rate=0.008			learning_rate=0.013
+learning_rate=0.004			learning_rate=0.009			learning_rate=0.014
+learning_rate=0.005			learning_rate=0.01			learning_rate=0.015
+learning_rate=0.006			learning_rate=0.011			learning_rate_correctness2000.tsv
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % mv results/learning_rate_correctness2000.tsv .
+mv results/learning_rate_correctness2000.tsv .
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ls
+ls
+fast_15k_with_split_rates.json		learning_rate_correctness2000.tsv	results
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/plot_sweep.py learning_rate_correctness2000.tsv --label "LR x Sweep Correctness 2000" --out learning_rate_correctness2000.png
+python3 ../../repo/tools/plot_sweep.py learning_rate_correctness2000.tsv --label "LR x Sweep Correctness 2000" --out learning_rate_correctness2000.png
+<abel "LR x Sweep Correctness 2000" --out learning_rate_correctness2000.png
+[ok] saved learning_rate_correctness2000.png
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % ls
+ls
+fast_15k_with_split_rates.json		learning_rate_correctness2000.tsv
+learning_rate_correctness2000.png	results
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % 

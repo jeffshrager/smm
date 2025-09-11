@@ -173,49 +173,49 @@ class SMM:
 
     # ---------- forward / predict ----------
 
-        """
-        Forward and prediction
-        ----------------------
-        These methods convert an encoded input vector into model outputs.
+    """
+    Forward and prediction
+    ----------------------
+    These methods convert an encoded input vector into model outputs.
 
-        - forward(x: np.ndarray) → (probs, hidden, gate)
-          * x: concatenated embedding vector of shape (3 * embed_size,).
-          * Applies the learned gating mechanism:
-              s = x @ attn_A + attn_b
-              gate = sigmoid(s)
-              attended = x * gate
-          * Passes attended input through:
-              - Linear layer (W1, b1) + ReLU → hidden representation (h).
-              - Linear projection (W_out) → intermediate representation (r).
-              - Dot with output_embeddings → logits for each possible output.
-              - Softmax → probability distribution over outputs.
-          * Returns:
-              probs: softmax distribution (1 × output_size)
-              h: hidden vector (1 × hidden_size)
-              gate: per-dimension gate activations (1 × input_size)
+    - forward(x: np.ndarray) → (probs, hidden, gate)
+      * x: concatenated embedding vector of shape (3 * embed_size,).
+      * Applies the learned gating mechanism:
+          s = x @ attn_A + attn_b
+          gate = sigmoid(s)
+          attended = x * gate
+      * Passes attended input through:
+          - Linear layer (W1, b1) + ReLU → hidden representation (h).
+          - Linear projection (W_out) → intermediate representation (r).
+          - Dot with output_embeddings → logits for each possible output.
+          - Softmax → probability distribution over outputs.
+      * Returns:
+          probs: softmax distribution (1 × output_size)
+          h: hidden vector (1 × hidden_size)
+          gate: per-dimension gate activations (1 × input_size)
 
-        - predict(a1, op, a2) → (pred_val, conf, use_fingers)
-          * Encodes inputs via encode_input(), calls forward().
-          * Computes confidence using normalized entropy.
-          * Selects prediction as argmax(probs).
-          * Returns:
-              pred_val: predicted integer (1..output_size)
-              conf: confidence score in [0,1]
-              use_fingers: True if conf < confidence_criterion
+    - predict(a1, op, a2) → (pred_val, conf, use_fingers)
+      * Encodes inputs via encode_input(), calls forward().
+      * Computes confidence using normalized entropy.
+      * Selects prediction as argmax(probs).
+      * Returns:
+          pred_val: predicted integer (1..output_size)
+          conf: confidence score in [0,1]
+          use_fingers: True if conf < confidence_criterion
 
-        - predict_with_finger_counting(a1, op, a2, ...)
-          * Calls predict().
-          * If operator is '+' and confidence is below threshold,
-            uses the FingerCounter (if attached) to produce a “finger counting”
-            result instead of the raw model output.
-          * Returns (prediction, confidence, used_finger_flag).
+    - predict_with_finger_counting(a1, op, a2, ...)
+      * Calls predict().
+      * If operator is '+' and confidence is below threshold,
+        uses the FingerCounter (if attached) to produce a “finger counting”
+        result instead of the raw model output.
+      * Returns (prediction, confidence, used_finger_flag).
 
-        Notes:
-        - The gating mechanism is key: it can emphasize or suppress dimensions of
-          the input embeddings, a simplified analogue of attention.
-        - Confidence drives the hybrid strategy: low confidence triggers
-          external reasoning (finger counting).
-        """
+    Notes:
+    - The gating mechanism is key: it can emphasize or suppress dimensions of
+      the input embeddings, a simplified analogue of attention.
+    - Confidence drives the hybrid strategy: low confidence triggers
+      external reasoning (finger counting).
+    """
 
     def forward(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if x.ndim == 1:
@@ -289,23 +289,77 @@ class SMM:
     - The “finger_phase” argument allows finger-counting sub-steps to be
       distinguished in logs, even though the math is identical.
     """
+
     def learn_single(self, a1: Optional[int], op: str, a2: Optional[int], target: int,
                      log_fn=None, phase="training", finger_phase=""):
+
+
+        # Encode → Forward
+        # Map symbolic tokens to vectors so the network can learn distributed
+        # representations of numbers/operators. The forward pass applies an
+        # elementwise *gate* over x (a sigmoid over an affine transform of x),
+        # then a linear+ReLU hidden, then projects into a class-embedding table
+        # before softmax. Returning (probs, h, gate) exposes the internal states
+        # used immediately by the manual backprop below.
+        #
+        # ALGORITHM
+        #   x      = [emb(a1) | emb(op) | emb(a2)]           # shape (1, 3E)
+        #   s      = x @ attn_A + attn_b                     # (1, 3E)
+        #   gate   = σ(s)                                    # (1, 3E)
+        #   z1     = (x * gate) @ W1 + b1                    # (1, H)
+        #   h      = ReLU(z1)                                # (1, H)
+        #   r      = h @ W_out                               # (1, E)
+        #   logits = r @ output_embeddings^T                 # (1, 12)
+        #   probs  = softmax(logits)                         # (1, 12)
+
         x = self.encode_input(a1, op, a2)
         probs, h, gate = self.forward(x)
+
+        # One-hot target construction
+        # Supervise a 12-class classifier for answers in {1..12}. Create y as a
+        # one-hot row vector; ignore out-of-range targets, which yields an all-zero
+        # y and thus zero gradient to the output table.
+        #
+        # SHAPES
+        #   y: (1,12)
 
         y = np.zeros((1, self.output_size))
         if 1 <= target <= 12:
             y[0, target-1] = 1.0
 
-        # Output layer
+        # Output layer backprop (softmax + cross-entropy)
+        # With softmax + negative log-likelihood, ∂L/∂logits = (probs − y).
+        # Because the classifier is factorized into (h→r) and (r→class table),
+        # we compute gradients for both the output embedding table and W_out.
+        #
+        # SHAPES & STEPS
+        #   dZ2        = probs − y                   # (1,12)
+        #   r          = h @ W_out                   # (1,E)  (recomputed for clarity)
+        #   dOutputEmb = dZ2^T @ r                   # (12,E) ∂L/∂output_embeddings
+        #   dR         = dZ2 @ output_embeddings     # (1,E)
+        #   dW_out     = h^T @ dR                    # (H,E)
+
         dZ2 = probs - y                      # (1,12)
         r = h @ self.W_out                   # (1,E)
         dOutputEmb = dZ2.T @ r               # (12,E)
         dR = dZ2 @ self.output_embeddings    # (1,E)
         dW_out = h.T @ dR                    # (H,E)
 
-        # Hidden layer
+        # Hidden layer backprop (ReLU + gated input path)
+        # Push gradient from r back to the hidden representation through W_out,
+        # apply ReLU′, and compute W1/b1 gradients using the *gated* input that
+        # was used in the forward pass (x * gate).
+        #
+        # SHAPES & STEPS
+        #   dH        = dR @ W_out^T                 # (1,H)
+        #   dZ1       = dH * (h > 0)                 # (1,H) ReLU derivative (mask)
+        #   x_row     = x[None,:]                    # (1,3E)
+        #   s_fwd     = x_row @ attn_A + attn_b      # (1,3E)
+        #   gate_fwd  = σ(s_fwd)                     # (1,3E)
+        #   attended  = x_row * gate_fwd             # (1,3E)
+        #   dW1       = attended^T @ dZ1             # (3E,H)
+        #   db1       = dZ1                          # (1,H)
+
         dH = dR @ self.W_out.T               # (1,H)
         dZ1 = dH * (h > 0)                   # ReLU'
         x_row = x.reshape(1, -1)
@@ -315,20 +369,52 @@ class SMM:
         dW1 = attended_forward.T @ dZ1
         db1 = dZ1
 
-        # Gate gradients
+        # Gate (attention-style) gradients
+        # The gate learns which input features matter for the task, akin to a
+        # per-feature attention mask. Since attended = x * gate and
+        # gate = σ(x @ attn_A + attn_b), we backprop via the sigmoid chain.
+        #
+        # SHAPES & STEPS
+        #   dA_input  = dZ1 @ W1^T                    # (1,3E) = ∂L/∂(x*gate)
+        #   dgate     = dA_input * x_row              # (1,3E)   ∂L/∂gate
+        #   ds        = dgate * gate_fwd*(1−gate_fwd) # (1,3E)   ∂L/∂(x@A+b)
+        #   dAttnA    = x_row^T @ ds                  # (3E,3E)
+        #   dAttnB    = ds                            # (1,3E)
+        # NOTE
+        #   Updating (attn_A, attn_b) can be fragile early on; the code supports
+        #   freezing these until step ≥ gate_freeze_until_step.
+
         dA_input = dZ1 @ self.W1.T
         dgate = dA_input * x_row
         ds = dgate * gate_forward * (1.0 - gate_forward)
         dAttnA = x_row.T @ ds
         dAttnB = ds
 
-        # Gradients for embeddings (through x)
+        # Gradients for embeddings via x
+        # Because attended = x * gate, ∂L/∂x = dA_input * gate_fwd. The input x is a
+        # concatenation of three E-dimensional blocks, so we slice ∂L/∂x back into
+        # (da1, dop, da2) to update the correct embedding rows.
+        #
+        # SHAPES & STEPS
+        #   dx   = dA_input * gate_fwd               # (1,3E)
+        #   da1  = dx[:, :E]                         # (1,E)
+        #   dop  = dx[:, E:2E]                       # (1,E)
+        #   da2  = dx[:, 2E:]                        # (1,E)
+
         dx = dA_input * gate_forward
         da1 = dx[:, : self.embed_size]
         dop = dx[:, self.embed_size: 2 * self.embed_size]
         da2 = dx[:, 2 * self.embed_size:]
 
-        # Update
+        # Parameter updates (+ optional gate freeze)
+        # Apply SGD with a scalar learning rate to the dense parameters. To avoid an
+        # early “shortcut” where the model learns to null out inputs, the gate can be
+        # left frozen for the first N steps and unfrozen later.
+        #
+        # UPDATED PARAMETERS
+        #   output_embeddings, W_out, W1, b1
+        #   (attn_A, attn_b) only if step ≥ gate_freeze_until_step
+
         lr = self.learning_rate
         self.output_embeddings -= lr * dOutputEmb
         self.W_out -= lr * dW_out
@@ -338,6 +424,11 @@ class SMM:
             self.attn_A -= lr * dAttnA
             self.attn_b -= lr * dAttnB
 
+        # Embedding table row updates (sparse style)
+        # Only the rows that were looked up should be updated: the two operand rows
+        # (if present) and the single operator row (index 0 for '+', 1 otherwise).
+        # This is standard in embedding-based models to keep updates sparse.
+
         if a1 is not None:
             self.number_embeddings[a1 - 1] -= lr * da1.reshape(-1)
         if a2 is not None:
@@ -345,10 +436,22 @@ class SMM:
         op_idx = 0 if op == '+' else 1
         self.operator_embeddings[op_idx] -= lr * dop.reshape(-1)
 
+        # Loss (cross-entropy): 
+        # Negative log-likelihood over the predicted distribution. A small epsilon
+        # stabilizes the log in the extremely unlikely event of a zero probability.
+
         loss = -np.sum(y * np.log(probs + 1e-10))
+
+        # Logging Callback:
+        # Externalizes side-effects. If provided, log_fn receives the full context:
+        #   (a1, op, a2, target, predicted, probs, loss, phase, finger_phase)
+        # so that training code can record traces/metrics without cluttering the model.
 
         if log_fn is not None:
             log_fn(a1, op, a2, target, int(np.argmax(probs[0])) + 1, probs[0], loss, phase, finger_phase)
+
+        # Bookkeeping:
+        # Increment the global step counter and return the scalar loss to the caller.
 
         self.step += 1
         return float(loss)

@@ -1,5 +1,6 @@
-# For this we're going to start at smm/ and I have a subfolder called
-  experiments/
+# You should have a folder called "experiments" at the same level as
+  the smm repo. I have both of these under .../smm which is where
+  we're going to start.
 
 (test) jeffshrager@MacBook-Pro-6 smm % ls
 ls

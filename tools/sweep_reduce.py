@@ -42,11 +42,11 @@ from typing import List, Tuple, Dict, Any, Optional
 
 def compute_vector(tsv_path: str):
     """
-    Rolling fraction-correct for ADDITION rows only (operator == '+'), using a 1000-row window.
+    Rolling fraction-correct for ADDITION rows only (operator == '+'), using a 2000-row window.
     If a window has zero addition rows, emit a blank ("").
     """
-    comp_name = "add_correctness1000"
-    window = 1000
+    comp_name = "add_correctness2000"
+    window = 2000
 
     import csv
     from collections import deque

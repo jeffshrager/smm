@@ -40,6 +40,83 @@ from typing import List, Tuple, Dict, Any, Optional
 # EDIT THIS COMPUTATION
 # -------------------------
 
+def compute_vector(tsv_path: str):
+    """
+    Rolling fraction-correct for ADDITION rows only (operator == '+'), using a 1000-row window.
+    If a window has zero addition rows, emit a blank ("").
+    """
+    comp_name = "add_correctness1000"
+    window = 1000
+
+    import csv
+    from collections import deque
+
+    def pick(fieldnames, *candidates):
+        low = {f.lower(): f for f in (fieldnames or [])}
+        for cand in candidates:
+            if cand in low:
+                return low[cand]
+        return None
+
+    q = deque()  # (is_add_row: bool, is_correct: bool)
+    add_cnt = 0
+    add_correct = 0
+    out = []
+
+    with open(tsv_path, "r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+
+        pred_col = pick(reader.fieldnames, "predicted", "prediction", "pred", "y_hat", "output")
+        tgt_col  = pick(reader.fieldnames, "target", "label", "y")
+        op_col   = pick(reader.fieldnames, "operator", "op", "operation", "symbol")
+
+        if pred_col is None or tgt_col is None:
+            raise RuntimeError(
+                f"Need prediction/target columns in {tsv_path}. "
+                f"Looked for: predicted|prediction|pred|y_hat|output and target|label|y. "
+                f"Found: {reader.fieldnames}"
+            )
+        if op_col is None:
+            raise RuntimeError(
+                f"Need an operator column for filtering additions in {tsv_path}. "
+                f"Looked for: operator|op|operation|symbol. "
+                f"Found: {reader.fieldnames}"
+            )
+
+        for row in reader:
+            pred = row.get(pred_col, "")
+            tgt  = row.get(tgt_col, "")
+            op   = (row.get(op_col, "") or "").strip()
+
+            # Treat as addition if operator equals '+' (or contains '+')
+            is_add = (op == "+") or ("+" in op)
+
+            is_correct = (str(pred) == str(tgt))
+
+            # push
+            q.append((is_add, is_correct))
+            if is_add:
+                add_cnt += 1
+                if is_correct:
+                    add_correct += 1
+
+            # pop when exceeding window
+            if len(q) > window:
+                old_is_add, old_is_correct = q.popleft()
+                if old_is_add:
+                    add_cnt -= 1
+                    if old_is_correct:
+                        add_correct -= 1
+
+            # output
+            if add_cnt > 0:
+                out.append(add_correct / add_cnt)
+            else:
+                out.append("")  # blank where no addition items in window
+
+    return comp_name, out
+
+'''
 def compute_vector(tsv_path: str) -> Tuple[str, List[float]]:
     """
     Compute a windowed average correctness over the training steps.
@@ -48,7 +125,7 @@ def compute_vector(tsv_path: str) -> Tuple[str, List[float]]:
     Then averaged over a fixed window (2000 steps).
     """
 
-    comp_name = "correctness2000"
+    comp_name = "additioncorrectness2000"
     window = 2000
     preds: List[str] = []
     targets: List[str] = []
@@ -83,6 +160,7 @@ def compute_vector(tsv_path: str) -> Tuple[str, List[float]]:
             avg.append(s / (i + 1))  # before window fills, use partial average
 
     return comp_name, avg
+'''
 
 '''
 def compute_vector(tsv_path: str) -> Tuple[str, List[Any]]:

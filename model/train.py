@@ -16,7 +16,8 @@ def setup_logging(outdir):
     ftsv = open(tsv, 'w')
     ftsv.write('\t'.join([
         'timestamp','phase','step','addend1','operator','addend2','target','predicted',
-        'confidence','used_finger_counting','loss','confidence_criterion','learning_rate','finger_phase'
+        'confidence','used_finger_counting','loss','confidence_criterion','learning_rate','finger_phase',
+        'softmax_probs'  # RR: New column for softmax probabilities
     ]) + '\n')
     fout = open(out, 'w')
     return ftsv, fout, ts  # ts is run_id
@@ -29,10 +30,13 @@ def log_output(fout, msg):
 
 
 def log_step(ftsv, smm, *, phase, step, a1, op, a2, target, predicted, confidence,
-             used_finger_counting, loss):
+             used_finger_counting, loss, probs, finger_phase = ""):
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     cc = getattr(smm, 'confidence_criterion', np.nan)
     lr = getattr(smm, 'learning_rate', np.nan)
+
+    # RR: Convert probs to a string representation
+    probs_str = json.dumps(probs.tolist())
     row = [
         ts, phase, step,
         ("" if a1 is None else a1),
@@ -44,7 +48,8 @@ def log_step(ftsv, smm, *, phase, step, a1, op, a2, target, predicted, confidenc
         f"{loss:.6f}",
         f"{cc:.6f}",
         f"{lr:.6f}",
-        getattr(smm, 'finger_phase', '')
+        finger_phase, # RR: Directly passed instead of getattr from smm class
+        probs_str # RR
     ]
     ftsv.write('\t'.join(map(str, row)) + '\n')
     ftsv.flush()
@@ -224,8 +229,15 @@ def train_loop(cfg):
       produce identical rows in the run log.
     """
 
-    def _log_cb(*args, **kw):
-        a1, op, a2, target, predicted, probs, loss, phase, finger_phase = args
+    def _log_cb(to_log_dict):
+        
+        # RR: Changed how arguments are received
+        log_keys = ["addend1", "operator", "addend2", 
+                    "target", "predicted", "prob_dist",
+                    "loss", "phase", "finger_phase"]
+
+        a1, op, a2, target, predicted, probs, loss, phase, finger_phase = [to_log_dict[key] for key in log_keys]
+        # print("log_cb", a1, op, a2, target, predicted, probs, loss, phase, finger_phase)
         conf = calculate_confidence(probs, smm.output_size)
         step = getattr(smm, "step", 0)
         used_fc = (phase == "finger_counting") or bool(finger_phase)
@@ -235,8 +247,25 @@ def train_loop(cfg):
             a1=a1, op=op, a2=a2,
             target=target, predicted=predicted,
             confidence=conf, used_finger_counting=used_fc,
-            loss=loss
+            loss=loss,
+            probs = probs, finger_phase = finger_phase # RR
         )
+
+    # ____________ OLD ______________
+    # def _log_cb(*args, **kw):
+    #     a1, op, a2, target, predicted, probs, loss, phase, finger_phase = args
+    #     print(len(args))
+    #     conf = calculate_confidence(probs, smm.output_size)
+    #     step = getattr(smm, "step", 0)
+    #     used_fc = (phase == "finger_counting") or bool(finger_phase)
+    #     log_step(
+    #         ftsv, smm,
+    #         phase=phase, step=step,
+    #         a1=a1, op=op, a2=a2,
+    #         target=target, predicted=predicted,
+    #         confidence=conf, used_finger_counting=used_fc,
+    #         loss=loss
+    #     )
 
     fc = FingerCounter(smm, log_step_cb=_log_cb)
     smm.finger_counter = fc

@@ -447,8 +447,20 @@ class SMM:
         #   (a1, op, a2, target, predicted, probs, loss, phase, finger_phase)
         # so that training code can record traces/metrics without cluttering the model.
 
+        # RR: Saving and passing a dict for logging.
+        # Why? Feels safer in matching the arguments to the variables.
+        to_log_dict = {"addend1": a1, "operator": op, "addend2": a2, 
+                  "target": target, "predicted":int(np.argmax(probs[0])) + 1, "prob_dist": probs[0],
+                  "loss":loss, "phase":phase, "finger_phase":finger_phase}
+
         if log_fn is not None:
-            log_fn(a1, op, a2, target, int(np.argmax(probs[0])) + 1, probs[0], loss, phase, finger_phase)
+            if finger_phase == "main_addition": to_log_dict["target"] = a1 + a2
+            # print(probs, probs[0])
+            # print(a1, op, a2, target, int(np.argmax(probs[0])) + 1, probs[0], loss, phase, finger_phase)
+            log_fn(to_log_dict)
+
+            # Original
+            # log_fn(a1, op, a2, target, int(np.argmax(probs[0])) + 1, probs[0], loss, phase, finger_phase)
 
         # Bookkeeping:
         # Increment the global step counter and return the scalar loss to the caller.

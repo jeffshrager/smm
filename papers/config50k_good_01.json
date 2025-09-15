@@ -1,8 +1,8 @@
 {
-  "total_steps": 15000,
+  "total_steps": 50000,
   "outdir": "results",
 
-  "learning_rate": 0.015,
+  "learning_rate": 0.005,
   "learning_rate_floor": 0.002,
   "lr_decay": 0.9999,
   "hidden_size": 64,

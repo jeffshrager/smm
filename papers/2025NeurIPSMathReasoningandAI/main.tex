@@ -55,27 +55,32 @@
 \maketitle
 
 \begin{abstract}
-\citeauthor{siegler1984strategychoices}'s influential 1984 "distribution of associations" strategy choice model (S\&S84) introduced concepts into mathematical cognition that anticipated modern neural architectures. Their confidence-thresholded, associative strength recall mechanism, along with the use of backup strategies and ecologically-based training data, presaged key principles underlying today's successful Large Language Models (LLMs). Here we describe a ``Small Math Model'' (SMM) that modernizes the S\&S84 framework using contemporary neural architecture principles, and extends the original model to include a preceding learning-to-count stage -- a stage that was "baked in" to S\&S84. Like LLMs, the SMM processes symbolic sequences and produces probability distributions over responses. Because the model includes two operators (counting and addition) it also has to learn the distinguish these, and which arguments to attend to. \rrsuggestion{Trained this way, the SMM acquires/demonstrates several hallmark behavior predicated by the strategy choice theory.} Early results demonstrate plausible developmental strategy conflict resolution patterns, while the LLM-inspired design enables detailed analysis of emergent representations. We describe the model (which is available open source, of course) and our direction, which involves adding an embedding layer for inputs and outputs that should enable the model to learn emergent properties of numbers.
+\citeauthor{siegler1984strategychoices}'s influential 1984 strategy choice model (S\&S84) anticipated principles now central to Large Language Models (LLMs), including confidence-based retrieval, backup strategies, and learning from naturalistic data. We present the ``Small Math Model'' (SMM), a modern neural implementation of S\&S84 extended with a preceding learning-to-count stage. Like LLMs, the SMM processes symbolic sequences and produces probabilistic outputs, reproducing hallmark behaviors predicted by strategy choice theory. While pedagogically useful, the SMM’s primary contributions are: (a) modernizing the Siegler program within an LLM-inspired framework, showing that a single mechanism can account for diverse developmental patterns, and (b) providing a platform for investigating number common sense in AI. Future work introduces multiple strategies and learned embeddings to test whether the model can capture emergent number properties and learn adaptive strategy use.
 \end{abstract}
+
 
 \section{Introduction}
 The development of mathematical cognition has long been understood through the lens of strategy choice theory \citep{siegler1984strategychoices, siegler1987perils, siegler1991microgenetic, shrager1998scads}. Children use multiple strategies---counting, retrieval, decomposition---and select among them probabilistically based on confidence and associative strength. \citeauthor{siegler1984strategychoices}'s framework emphasized mechanisms such as backup strategies and a ``feeling of knowing,'' concepts that align with probabilistic inference, uncertainty estimation, and fallback mechanisms in modern AI.
 
 Meanwhile, Large Language Models (LLMs) have revolutionized natural language processing by scaling these same principles. LLMs produce probabilistic outputs, estimate confidence via entropy, and dynamically select strategies from massive learned corpora. This parallel motivates a re-examination of early cognitive frameworks through the lens of modern architectures.
 
-We present the Small Math Model (SMM), a shallow (three-layer) neural network designed to explore the counting-addition conflict central to early math development. The SMM allows us to revisit classical questions in a tractable contemporary architecture, and leverage contemporary analytic tools. \rrsuggestion{This way, the SMM provides an ideal testbed to trace LLM reasoning abilities as they emerge and compare with human reasoning, as steps towards an integrated understanding of intelligent reasoning in complex environments.}
+We present the Small Math Model (SMM), a shallow (three-layer) neural network designed to explore the counting–addition conflict central to early math development. The SMM allows us to revisit classical questions in a tractable contemporary architecture, and leverage contemporary analytic tools. Although the SMM may have pedagogical applications, our primary goals are twofold: (a) to bring the Siegler modeling program into the LLM era, demonstrating that a single mechanism can still account for diverse developmental patterns within a modern framework, and (b) to provide a platform for studying number common sense in LLMs, which has been shown to be limited in other contexts. 
+
+This way, the SMM serves both as a modern continuation of Siegler and Shrager’s tradition and as a testbed for probing fundamental issues in AI reasoning. Our immediate next steps involve expanding beyond a single strategy, allowing the model to learn when to apply different strategies, and incorporating number embeddings to test whether they can capture emergent numerical properties and support improved strategy selection. 
 
 \section{SMM $<->$ LMM Analysis}
 
-\section{Architecture and Learning Dynamics}
+\section{Architecture}
 
-\rrsuggestion{(A possible plot of the network to put in the appendix? May help save a few words here and also help a reader like with a visual anchor. I will create the digital version, but will draw one by hand first in our next meeting.)}
+The Small Math Model (SMM) represents numbers using learned embeddings. Each integer is mapped to a dense vector in a continuous space, enabling the model to capture emergent relationships among numbers (for example, even versus odd, relative magnitude, or common configurations such as base-five hand groupings). These embeddings feed into a recurrent processing core that implements a mixture of symbolic strategies, including finger counting and direct addition.
 
-Our SMM is designed as a pedagogical analogue of a modern Large Math or Language Model (LMM/LLM). Inputs are tokenized into three slots---the first operand, operator, and second operand---each of which is mapped into a learned embedding space. This mirrors the embedding step of LLMs, albeit without positional encoding. The concatenated embeddings form the input to the network, analogous to a short sequence of tokens in a transformer.
-
-To approximate attention, the SMM includes a learned, per-dimension gating mechanism. Each input dimension is weighted by a sigmoid gate parameterized by trainable matrices; this allows the model to emphasize or suppress parts of the concatenated input. While not a full self-attention mechanism, this ``quasi-attention'' plays a similar role in controlling the flow of information. The gated inputs are then processed by a hidden layer, projected into an embedding space, and scored against learned output embeddings before a softmax over the vocabulary of possible answers. Training is performed with a cross-entropy objective, exactly as in autoregressive LLMs, though over a much smaller vocabulary (numbers 1--12).
+A central gating mechanism allocates probability mass across strategies based on past performance and contextual confidence, providing a computational analogue of adaptive strategy selection in human learners. In addition, the model incorporates an \emph{attention gate} that learns to modulate which
+input arguments are emphasized in different contexts. Through training, the model acquires patterns of attention that support distinct strategies: in counting, attention tends to amplify the representation of the current number in a sequence, facilitating stepwise incrementing; in addition, attention tends to highlight both operands simultaneously, capturing their relational structure. These attentional allocations are not hand-coded but emerge as a consequence of learning. To avoid unstable behavior early in training, the attention gate is held off for an initial warm-up period; once enabled, it allows the model to selectively amplify relevant signals and suppress distractors, sharpening the competition among strategies.
 
 A distinctive feature of the SMM is its incorporation of explicit \emph{finger counting} as an auxiliary reasoning strategy. Confidence is estimated from the entropy of the output distribution; when confidence falls below a threshold, the model defers to an external finger-counting procedure that generates the correct result step by step. The output of this routine is then fed back into training, analogous to the way LLMs can be augmented with external tools or chains-of-thought and subsequently distilled back into the base model.
+
+Counting and addition are implemented as separable but overlapping modules. Counting is trained from the very beginning of each run, while addition can be introduced at different timepoints to investigate how prior knowledge influences subsequent learning. After each problem, strategy-specific confidence values are updated according to correctness, and these values govern stochastic selection of strategies on subsequent trials. This architecture
+therefore supports mechanistic analysis of how new procedures compete with, reinforce, or interfere with existing ones in the course of skill acquisition.
 
 Training follows a curriculum schedule in which problem difficulty and task type (counting vs. addition) are varied according to Gaussian flows. This is directly inspired by curriculum learning practices in LLM training, where data distributions are staged over time to improve stability and generalization. Learning rates and confidence thresholds are annealed across steps, further paralleling hyperparameter scheduling in large-scale models.
 
@@ -90,27 +95,46 @@ The SMM processes input sentences of the form ``a operator b'' where $a,b \in \{
 \paragraph{Logging and Evaluation.} The implementation includes structured logging of accuracy, entropy, and error distributions across problem types. These diagnostics allow comparison to known developmental error patterns, such as over-reliance on counting or failure to generalize across contexts.
 
 \section{Results}
-Preliminary experiments demonstrate that the SMM reproduces several hallmark behaviors predicted by strategy choice theory:
-\begin{itemize}
-  \item \textbf{Counting-Addition Conflict:} The model initially overgeneralizes successor relationships (e.g., learning ``$2\to3$'' before ``$2+3=5$''), mirroring children's early developmental errors.
-  \item \textbf{Entropy as Confidence:} Output entropy decreases systematically with training, reflecting increased certainty in well-practiced sums.
-  \item \textbf{Backup Dynamics:} When addition accuracy falters, the model exhibits fallback to simpler successor-like behavior, analogous to procedural backup strategies.
-\end{itemize}
 
-Representative plots of accuracy vs. curriculum stage, entropy distributions, and confusion matrices highlight these emergent dynamics (to be included from simulation runs).
+To probe the dynamics of interference, we conducted a sweep varying the point at which
+addition training was introduced (2000, 4000, …, 14000 steps). Counting was trained from the
+very beginning in all cases. Figure~\ref{fig:addition_interference} shows the moving-window
+correctness (2000-sample average) on addition problems as a function of training step.
 
-\rrsuggestion{Possible plots: Distributions of associative strength over all possible answers (similar to Fig. 9.8 from \citet{siegler1984strategychoices})}
+The results reveal both constructive and destructive interference between counting and
+addition. When addition is introduced very early (e.g., 2000 steps), learning is unstable and
+plateaus at moderate accuracy (around 0.5). When introduced at midpoints (6000–8000 steps),
+addition learning benefits from prior counting knowledge, rising sharply to high accuracy
+levels (0.7+). In contrast, when addition is introduced very late (12000–14000 steps),
+correctness remains suppressed, rarely exceeding 0.2. Thus, prior experience with counting
+can either scaffold or hinder the acquisition of addition, depending critically on the timing
+of introduction.
 
-\section{Discussion}
-The SMM illustrates how modern neural implementations can instantiate and extend classical cognitive theories. By reframing Siegler and Shrager's ideas in computational terms aligned with LLMs, we obtain:
-\begin{itemize}
-  \item A platform for mechanistic analysis of symbolic reasoning in tractable domains.
-  \item Opportunities to probe representations directly, e.g., via similarity analysis or attention visualization.
-  \item A bridge between cognitive science and AI, highlighting shared principles of probabilistic selection, confidence estimation, and adaptive strategy use.
-\end{itemize}
+These findings extend Siegler and Shrager’s framework into a computational setting,
+demonstrating how adaptive strategy competition can give rise to nontrivial transfer effects.
+The embedding-based architecture further allows us to investigate whether number embeddings
+capture meaningful latent properties (e.g., even/odd or base-five hand configurations), which
+we leave to future work.
 
-\section{Next Steps (To be updated)}
-While the current implementation uses one-hot encodings, we plan to introduce \textbf{learned embeddings} for numbers and operators. Embeddings allow the model to discover emergent number properties (e.g., parity, proximity to 5 or 10) and support strategy-specific generalizations. To test this, we will design pseudo-strategies with error profiles dependent on number properties---for instance, a ``finger counting'' strategy that excels at $+1$ problems, or a $+5$ strategy that works best when an operand is 5. By varying error proneness we can examine whether embeddings capture such latent features. Probes (e.g., linear classifiers on embeddings) and behavioral splits (e.g., 1+ problems vs. 5+ problems) will serve as evaluation tools. This extension will provide a richer testbed for exploring how modern neural systems can internalize structured knowledge and reconcile competing strategies, further uniting insights from cognitive development and large-scale AI.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{addition_start_step_add_correctness2000.png}
+  \caption{Addition correctness as a function of training step, for different
+  addition-start times. Counting is always trained from the beginning. Constructive
+  and destructive interference emerge depending on when addition is introduced.}
+  \label{fig:addition_interference}
+\end{figure}
+\section{Discussion and Next Steps}
+The SMM illustrates how modern neural implementations can instantiate and extend classical cognitive theories. By reframing Siegler and Shrager's ideas in computational terms aligned with LLMs, we obtain a platform for mechanistic analysis of symbolic reasoning in tractable domains, opportunities to probe representations directly (e.g., via similarity analysis or attention visualization), and a bridge between cognitive science and AI, highlighting shared principles of probabilistic selection, confidence estimation, and adaptive strategy use.
+
+Although the SMM may have pedagogical utility, its main contributions are twofold: (a) it brings the Siegler modeling program into the LLM era, demonstrating that a single mechanism can reproduce diverse developmental patterns within a contemporary architecture; and (b) it provides a platform for investigating number common sense in systems modeled after LLMs, an ability that remains fragile in current large-scale AI.
+
+Looking forward, the most important step is to move beyond a single strategy. We plan to implement multiple strategies and allow the model to learn which are appropriate for which types of problems. This expansion will allow closer alignment with empirical findings on children’s adaptive strategy choice, while testing whether embeddings can capture properties of numbers (e.g., parity, magnitude relations, proximity to 5 or 10) that influence strategy efficiency. 
+
+While the current implementation uses one-hot encodings, we will introduce \textbf{learned embeddings} for numbers and operators. Embeddings should enable the discovery of emergent number properties and support strategy-specific generalizations. To test this, we will design pseudo-strategies with error profiles dependent on number features---for instance, a ``finger counting'' strategy that excels at $+1$ problems, or a $+5$ strategy that works best when an operand is 5. By varying error proneness we can examine whether embeddings capture such latent features. Probes (e.g., linear classifiers on embeddings) and behavioral splits (e.g., 1+ problems vs. 5+ problems) will serve as evaluation tools.
+
+Together, these extensions will provide a richer testbed for exploring how modern neural systems can internalize structured numerical knowledge, reconcile competing strategies, and develop more robust common sense. In doing so, the SMM continues Siegler’s tradition of mechanistic modeling while directly engaging with central challenges in today’s AI research.
+
 
 \section*{\rrsuggestion{Inventory -- TBD}}
 

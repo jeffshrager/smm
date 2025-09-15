@@ -1,6 +1,7 @@
 \documentclass{article}
 \PassOptionsToPackage{compress}{natbib}
-\usepackage{neurips_2025}
+\usepackage[dblblindworkshop]{neurips_2025}
+% \usepackage[dblblindworkshop, final]{neurips_2025}
 \usepackage{graphicx} % Required for inserting images
 
 \title{SMM}
@@ -29,10 +30,24 @@
 
 \title{A Small Math Model: Reimplementing Siegler and Shrager's Addition Model in an LLM-Inspired Architecture}
 
+% Alternate titles:
+
+% \title{A Small Math Model: Recreating a Cognitive Model of Learning Addition Problems in an LLM-Inspired Architecture}
+
+% \title{A Small Math Model: Teaching a Transformer-based Neural Network how to Add like Children}
+
+% \title{A Small Math Model: Enulating Children/Human Learning in Addition Problems in an LLM-Inspired Architecture}
+
 \author{
-  Your Name \\
-  Your Institution \\
-  \texttt{your.email@example.com}
+  Jeff Shrager\\
+  Stanford University\\
+  Stanford, CA 94305\\
+  \texttt{jshrager@gmail.com}
+  \And
+  Roussel Rahman\\
+  Stanford University\\
+  Stanford, CA 94305\\
+  \texttt{roussel.rahman@gmail.com}
 }
 
 \begin{document}
@@ -50,11 +65,13 @@ Meanwhile, Large Language Models (LLMs) have revolutionized natural language pro
 
 We present the Small Math Model (SMM), a shallow (three-layer) neural network designed to explore the counting-addition conflict central to early math development. The SMM allows us to revisit classical questions in a tractable contemporary architecture, and leverage contemporary analytic tools. \rrsuggestion{This way, the SMM provides an ideal testbed to trace LLM reasoning abilities as they emerge and compare with human reasoning, as steps towards an integrated understanding of intelligent reasoning in complex environments.}
 
-\section{SSM<->LMM Analysis}
+\section{SMM $<->$ LMM Analysis}
 
 \section{Architecture and Learning Dynamics}
 
-Our Small Math Model (SMM) is designed as a pedagogical analogue of a modern Large Math or Language Model (LMM/LLM). Inputs are tokenized into three slots---the first operand, operator, and second operand---each of which is mapped into a learned embedding space. This mirrors the embedding step of LLMs, albeit without positional encoding. The concatenated embeddings form the input to the network, analogous to a short sequence of tokens in a transformer.
+\rrsuggestion{(A possible plot of the network to put in the appendix? May help save a few words here and also help a reader like with a visual anchor. I will create the digital version, but will draw one by hand first in our next meeting.)}
+
+Our SMM is designed as a pedagogical analogue of a modern Large Math or Language Model (LMM/LLM). Inputs are tokenized into three slots---the first operand, operator, and second operand---each of which is mapped into a learned embedding space. This mirrors the embedding step of LLMs, albeit without positional encoding. The concatenated embeddings form the input to the network, analogous to a short sequence of tokens in a transformer.
 
 To approximate attention, the SMM includes a learned, per-dimension gating mechanism. Each input dimension is weighted by a sigmoid gate parameterized by trainable matrices; this allows the model to emphasize or suppress parts of the concatenated input. While not a full self-attention mechanism, this ``quasi-attention'' plays a similar role in controlling the flow of information. The gated inputs are then processed by a hidden layer, projected into an embedding space, and scored against learned output embeddings before a softmax over the vocabulary of possible answers. Training is performed with a cross-entropy objective, exactly as in autoregressive LLMs, though over a much smaller vocabulary (numbers 1--12).
 
@@ -62,7 +79,7 @@ A distinctive feature of the SMM is its incorporation of explicit \emph{finger c
 
 Training follows a curriculum schedule in which problem difficulty and task type (counting vs. addition) are varied according to Gaussian flows. This is directly inspired by curriculum learning practices in LLM training, where data distributions are staged over time to improve stability and generalization. Learning rates and confidence thresholds are annealed across steps, further paralleling hyperparameter scheduling in large-scale models.
 
-In sum, the SMM modernizes and extends earlier work by Shrager et al.\ by explicitly drawing analogies to contemporary LLM architectures: embeddings, gating/attention, cross-entropy loss, curriculum learning, and tool use. While vastly simplified, this architecture provides a testbed for studying how counting priors, confidence estimation, and quasi-attention interact in a controlled setting, with the ultimate goal of bridging symbolic and neural perspectives on mathematical reasoning.
+In sum, the SMM modernizes and extends earlier work by Shrager et al.\ by explicitly drawing analogies to contemporary LLM architectures: embeddings, gating/attention, cross-entropy loss, curriculum learning, and tool use. This vastly simplified architecture provides a testbed for studying how counting priors, confidence estimation, and quasi-attention interact in a controlled setting, with the ultimate goal of bridging symbolic and neural perspectives on mathematical reasoning.
 
 
 \section{Methods}
@@ -75,7 +92,7 @@ The SMM processes input sentences of the form ``a operator b'' where $a,b \in \{
 \section{Results}
 Preliminary experiments demonstrate that the SMM reproduces several hallmark behaviors predicted by strategy choice theory:
 \begin{itemize}
-  \item \textbf{Counting-Addition Conflict:} The model initially overgeneralizes successor relationships (e.g., learning ``2$\to$3'' before ``2+3=5''), mirroring children's early developmental errors.
+  \item \textbf{Counting-Addition Conflict:} The model initially overgeneralizes successor relationships (e.g., learning ``$2\to3$'' before ``$2+3=5$''), mirroring children's early developmental errors.
   \item \textbf{Entropy as Confidence:} Output entropy decreases systematically with training, reflecting increased certainty in well-practiced sums.
   \item \textbf{Backup Dynamics:} When addition accuracy falters, the model exhibits fallback to simpler successor-like behavior, analogous to procedural backup strategies.
 \end{itemize}
@@ -92,10 +109,12 @@ The SMM illustrates how modern neural implementations can instantiate and extend
   \item A bridge between cognitive science and AI, highlighting shared principles of probabilistic selection, confidence estimation, and adaptive strategy use.
 \end{itemize}
 
-\section{Next Steps}
+\section{Next Steps (To be updated)}
 While the current implementation uses one-hot encodings, we plan to introduce \textbf{learned embeddings} for numbers and operators. Embeddings allow the model to discover emergent number properties (e.g., parity, proximity to 5 or 10) and support strategy-specific generalizations. To test this, we will design pseudo-strategies with error profiles dependent on number properties---for instance, a ``finger counting'' strategy that excels at $+1$ problems, or a $+5$ strategy that works best when an operand is 5. By varying error proneness we can examine whether embeddings capture such latent features. Probes (e.g., linear classifiers on embeddings) and behavioral splits (e.g., 1+ problems vs. 5+ problems) will serve as evaluation tools. This extension will provide a richer testbed for exploring how modern neural systems can internalize structured knowledge and reconcile competing strategies, further uniting insights from cognitive development and large-scale AI.
 
 \section*{\rrsuggestion{Inventory -- TBD}}
+
+
 
 \subsection*{Some high-level points}
 
@@ -111,7 +130,38 @@ Catastrophic Forgetting vs Grokking. (What is grokking? \citet{nanda2023progress
 
 \subsection*{Some relevant research}
 Catastrophic forgetting a well-established phenomenon in NNs, first observed by \citet{mccloskey1989catastrophic}
-``New learning may interfere catastrophically with old learning when networks are trained sequentially'' \citep[][pp. 109]{mccloskey1989catastrophic}.
+``New learning may interfere catastrophically with old learning when networks are trained sequentially'' \citep[][pp. 109]{mccloskey1989catastrophic}. While (some explanations), a detailed understanding of the phenomenon remains elusive and the problem is further exacerbated as LLMs become more complex with finetuning for specific domains and enhancement with different mechanisms (e.g., code execution, web search, and reinforcement learning). Consequently, even though the LLMs frequently demonstrate catastrophic forgetting in complex environments \citep[][]{shojaee2025illusion, rahman2025llm}, their causes are hard to specify and address. The SMM emulates the catastrophic forgetting and provides a testbed for existing and new explainable AI (XAI) tools.
+
+(The need to study strategies)
+Grokking: A sudden, sharp rise in performance after prolonged period of training. Nanda et al explained grokking in modular arithmetic. explanation: the model shifts from memorization to generalization based on a learned pattern.
+
+Reverse grokking, a lesser-studied but intriguing phenomenon, flips the script: a model generalizes well early in training (high validation accuracy) but, with further training, loses generalization, reverting to overfitting or poor validation performance while training accuracy remains high. It’s as if the model forgets its insights and gets stuck in a memorization rut.
+
+Shojaee et al's demos show that learning general strategies is not guaranteed. The model performance catastrophically collapsed in the ToH task, whereas there exists multiple strategies that yield optimal performance (i.e., shortest number of moves to goal state).
+
+Generally, In complex environments, human learning curves go through pdls due to strategic exploration and discovery. 
+
+
+\subsection{About Results}
+SMM: (1) Performance drop when learning to add after learning to count: emulate Reverse Grokking. (2) The subsequent performance leap Counting to Addition -- emulate grokking. Explanation: The model indeed forgets counting to some extent and their addition skills are also not strong enough early in learning, resulting in the drop. Afterwards, the model become proficient in learning and also learns its counting skills back from repeated trials, resulting in improvement.
+
+
+\subsection{For future}
+
+0. Changes in the Distributions of Associations
+
+0a. plot the softmax distribution over answer space for the same problem in epochs far apart (1000?)
+
+0b. A measure for the changes in distributions across trials. We can "center" each distribution around correct answer and then use KL divergence or other distributional measures. This one can be compared with accuracy curve. If they reflect each other (in other words, are highly correlated), that would indicate the distributional changes may provide able indicators of changes at one level lower of AI reasoning with learning. The SMM allows us to trace our way into lower levels, such as in embedding spaces and down to input level.
+
+
+1. Mechanistic explanations of SMM -- that is, identifying the circuits corresponding to counting vs addition strategies.
+
+2. Distances in Embedding Space for learned strategies
+
+3. Activations based on inputs
+
+Generally, this way, the SMM provides a foundation to develop, test, and validate new tools to explain AI reasoning in complex domains such as mathematical problem solving and beyond.
 
 \bibliographystyle{apalike}
 \bibliography{math_reasoning_bibliography}

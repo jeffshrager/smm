@@ -18,13 +18,16 @@ Usage:
   python3 sweep_reduce.py --sweep-dir <DIR> --param <PARAM>
 Optional:
   --glob '*.tsv'            # pattern to find per-run TSVs (default: '*.tsv')
+  --op '+'                  # operator filter (e.g., '+' for addition, 'count' for counting)
+  --window 2000             # moving window size for rolling correctness
   --strict-length           # error if vectors differ in length (default on)
   --allow-truncate          # truncate to min length across runs (disables strict)
   --allow-pad               # pad to max length across runs with '' (disables strict)
 
 Example:
 
-python3 sweep_reduce.py --sweep-dir results/addstart_sweep --param addition_start_step --allow-truncate
+python3 sweep_reduce.py --sweep-dir results/addstart_sweep --param addition_start_step \
+  --op '+' --window 2000 --allow-truncate
 
 """
 
@@ -40,15 +43,22 @@ from typing import List, Tuple, Dict, Any, Optional
 # EDIT THIS COMPUTATION
 # -------------------------
 
-def compute_vector(tsv_path: str):
+def compute_vector(tsv_path: str, op_filter: str, window: int):
     """
-    Rolling fraction-correct for ADDITION rows only (operator == '+'), using a 2000-row window.
-    If a window has zero addition rows, emit a blank ("").
-    """
-    comp_name = "add_correctness2000"
-    window = 2000
+    Rolling fraction-correct for rows whose operator matches --op (exact match or substring),
+    using a user-specified window size. If a window has zero matching rows, emit a blank ("").
 
-    import csv
+    Returns:
+      comp_name (str): used to form the output filename
+      out (List[Any]): vector of per-row rolling correctness ('' when no matches in window)
+    """
+    # sanitize op for filename label
+    op_tag = {"+": "add", "->": "count"}.get(
+        op_filter,
+        re.sub(r"[^A-Za-z0-9]+", "_", op_filter)
+    )
+    comp_name = f"{op_tag}_correctness{window}"
+
     from collections import deque
 
     def pick(fieldnames, *candidates):
@@ -58,9 +68,9 @@ def compute_vector(tsv_path: str):
                 return low[cand]
         return None
 
-    q = deque()  # (is_add_row: bool, is_correct: bool)
-    add_cnt = 0
-    add_correct = 0
+    q = deque()  # (is_match_row: bool, is_correct: bool)
+    op_cnt = 0
+    op_correct = 0
     out = []
 
     with open(tsv_path, "r", newline="", encoding="utf-8") as f:
@@ -78,7 +88,7 @@ def compute_vector(tsv_path: str):
             )
         if op_col is None:
             raise RuntimeError(
-                f"Need an operator column for filtering additions in {tsv_path}. "
+                f"Need an operator column for filtering rows by operator in {tsv_path}. "
                 f"Looked for: operator|op|operation|symbol. "
                 f"Found: {reader.fieldnames}"
             )
@@ -88,108 +98,33 @@ def compute_vector(tsv_path: str):
             tgt  = row.get(tgt_col, "")
             op   = (row.get(op_col, "") or "").strip()
 
-            # Treat as addition if operator equals '+' (or contains '+')
-            is_add = (op == "+") or ("+" in op)
+            # Match current row to requested operator (exact OR substring)
+            is_match = (op == op_filter) or (op_filter in op)
 
             is_correct = (str(pred) == str(tgt))
 
             # push
-            q.append((is_add, is_correct))
-            if is_add:
-                add_cnt += 1
+            q.append((is_match, is_correct))
+            if is_match:
+                op_cnt += 1
                 if is_correct:
-                    add_correct += 1
+                    op_correct += 1
 
             # pop when exceeding window
             if len(q) > window:
-                old_is_add, old_is_correct = q.popleft()
-                if old_is_add:
-                    add_cnt -= 1
+                old_is_match, old_is_correct = q.popleft()
+                if old_is_match:
+                    op_cnt -= 1
                     if old_is_correct:
-                        add_correct -= 1
+                        op_correct -= 1
 
-            # output
-            if add_cnt > 0:
-                out.append(add_correct / add_cnt)
+            # output a value for *each row*
+            if op_cnt > 0:
+                out.append(op_correct / op_cnt)
             else:
-                out.append("")  # blank where no addition items in window
+                out.append("")  # blank where no matching items in window
 
     return comp_name, out
-
-'''
-def compute_vector(tsv_path: str) -> Tuple[str, List[float]]:
-    """
-    Compute a windowed average correctness over the training steps.
-
-    Correctness = 1.0 if predicted == target else 0.0
-    Then averaged over a fixed window (2000 steps).
-    """
-
-    comp_name = "additioncorrectness2000"
-    window = 2000
-    preds: List[str] = []
-    targets: List[str] = []
-
-    import csv
-    with open(tsv_path, "r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t")
-        # normalize fieldnames to lower
-        fmap = {name.lower(): name for name in reader.fieldnames or []}
-        if "predicted" not in fmap or "target" not in fmap:
-            raise RuntimeError(f"Need 'predicted' and 'target' in {tsv_path}")
-        col_pred = fmap["predicted"]
-        col_tgt = fmap["target"]
-        for row in reader:
-            preds.append(row[col_pred])
-            targets.append(row[col_tgt])
-
-    # compute correctness series
-    corr = [1.0 if p == t else 0.0 for p, t in zip(preds, targets)]
-
-    # moving average with fixed window size
-    avg: List[float] = []
-    s = 0.0
-    for i, c in enumerate(corr):
-        s += c
-        if i >= window:
-            s -= corr[i - window]
-            avg.append(s / window)
-        elif i == window - 1:
-            avg.append(s / window)
-        else:
-            avg.append(s / (i + 1))  # before window fills, use partial average
-
-    return comp_name, avg
-'''
-
-'''
-def compute_vector(tsv_path: str) -> Tuple[str, List[Any]]:
-    """
-    Given a single run TSV, return (computation_name, vector).
-
-    Default example:
-      - Read the TSV (tab-delimited)
-      - Return the 'predicted' column as a list
-      - Name the computation 'preds'
-
-    Replace this with your desired computation; just keep the signature.
-    """
-    comp_name = "preds"
-    vector: List[Any] = []
-
-    with open(tsv_path, "r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t")
-        # normalize fieldnames lowercased for robust matching
-        field_map = {name.lower(): name for name in reader.fieldnames or []}
-        if "predicted" not in field_map:
-            raise RuntimeError(f"'predicted' column not found in {tsv_path}. "
-                               f"Columns: {reader.fieldnames}")
-        colname = field_map["predicted"]
-        for row in reader:
-            vector.append(row.get(colname, ""))
-
-    return comp_name, vector
-'''
 
 # -------------------------
 # Helpers
@@ -242,6 +177,8 @@ def main():
     ap.add_argument("--sweep-dir", required=True, help="Top-level sweep directory")
     ap.add_argument("--param", required=True, help="Parameter name (e.g., learning_rate)")
     ap.add_argument("--glob", default="*.tsv", help="Glob for per-run TSVs (default: *.tsv)")
+    ap.add_argument("--op", default="+", help="Operator symbol to filter on (e.g., '+' for addition, 'count' for counting).")
+    ap.add_argument("--window", type=int, default=2000, help="Rolling window size for correctness.")
     grp = ap.add_mutually_exclusive_group()
     grp.add_argument("--strict-length", action="store_true", help="Require identical vector lengths (default)")
     grp.add_argument("--allow-truncate", action="store_true", help="Truncate to MIN length")
@@ -251,6 +188,17 @@ def main():
     sweep_dir = args.sweep_dir
     param = args.param
     tsv_glob = args.glob
+    op_filter = args.op
+    window = args.window
+
+    # Normalize friendly keywords to actual symbols found in TSVs
+    if op_filter.lower() == "count":
+        op_filter = "->"
+    elif op_filter.lower() == "add":
+        op_filter = "+"
+
+    if window <= 0:
+        sys.exit(f"--window must be a positive integer, got {window}")
 
     if not os.path.isdir(sweep_dir):
         sys.exit(f"Not a directory: {sweep_dir}")
@@ -276,7 +224,7 @@ def main():
             print(f"[warn] No TSVs in {run_dir} matching {tsv_glob}; skipping.", file=sys.stderr)
             continue
 
-        name, vec = compute_vector(tsv_path)
+        name, vec = compute_vector(tsv_path, op_filter=op_filter, window=window)
         if comp_name is None:
             comp_name = name
         elif comp_name != name:

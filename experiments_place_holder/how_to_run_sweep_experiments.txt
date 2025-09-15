@@ -63,7 +63,7 @@ Run complete: 20250911085642
   algorithm was left in sweep_reduce last. (FFF Should have these
   named and arg-selected.)
 
-(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --allow-truncate
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --op "+" --allow-truncate
 
 [ok] Wrote results/learning_rate_correctness2000.tsv
 [info] Columns: 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.014, 0.015

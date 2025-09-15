@@ -1,0 +1,28 @@
+{
+  "total_steps": 15000,
+  "outdir": "results",
+
+  "learning_rate": 0.015,
+  "learning_rate_floor": 0.002,
+  "lr_decay": 0.9999,
+  "hidden_size": 64,
+  "gate_freeze_until_step": 3000,
+
+  "addition_start_step": 8000,
+  "counting_fade_rate": 0.00015,
+
+  "confidence_criterion_start": 0.90,
+  "confidence_floor": 0.75,
+  "checkpoint_interval": 5000,
+
+  "tf_rate_counting": 0.00020,
+  "tf_rate_addition": 0.00005,
+
+  "cf_sd": 1.2,
+  "cx_sd": 0.9,
+  "cf_min_complexity": 2.0,
+  "cf_max_complexity": 7.0,
+  "addition_cf_min": 2.0,
+  "addition_cf_max": 11.0,
+  "counting_focus_steps": 6000
+}

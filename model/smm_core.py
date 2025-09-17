@@ -454,7 +454,6 @@ class SMM:
                   "loss":loss, "phase":phase, "finger_phase":finger_phase}
 
         if log_fn is not None:
-            if finger_phase == "main_addition": to_log_dict["target"] = a1 + a2
             # print(probs, probs[0])
             # print(a1, op, a2, target, int(np.argmax(probs[0])) + 1, probs[0], loss, phase, finger_phase)
             log_fn(to_log_dict)
@@ -474,46 +473,54 @@ class SMM:
     Special-case training routine for addition problems (a1 + a2).
 
     Purpose:
-    - Integrates the external FingerCounter strategy into training.
-    - When the model is not yet confident on addition, finger counting
-      can provide a reliable target. The model then learns from this
-      target just like a normal supervised example.
+    - Provides a fallback to the external FingerCounter strategy when the
+      model’s retrieval confidence is too low.
+    - Unlike the eager version, finger counting is only computed if it
+      will actually be used, avoiding wasted compute and RNG drift.
 
     Workflow:
-    1. Call predict_with_finger_counting(a1, "+", a2).
-       - If confidence < threshold and a FingerCounter is attached,
-         this will return the finger-counted result instead of the
-         model’s raw argmax prediction.
-    2. Use that result as the “target” for learn_single().
-       - This means the model is always trained toward the correct sum,
-         but the source of supervision may be finger counting early on.
-    3. Pass phase="training" and finger_phase="main_addition" to make
-       logs distinguish these events.
+    1. Call predict(a1, "+", a2) to get the model’s raw prediction and confidence.
+    2. If confidence < confidence_criterion:
+         - Call finger_counter.finger_add(a1, a2) to obtain a (possibly noisy)
+           finger-counting result.
+         - Train the model on this finger result (logs marked with
+           finger_phase="main_addition").
+       Else:
+         - Skip finger counting.
+         - Train the model directly toward the true sum target (a1 + a2).
+    3. Return the scalar float(loss) from learn_single().
 
     Return:
-    - Scalar float(loss) from learn_single().
+    - Scalar float(loss), the negative log-likelihood.
 
     Notes:
-    - This creates a feedback loop: the symbolic finger-counting
-      strategy scaffolds the model until its confidence is high enough
-      to stand alone.
-    - In logs, these steps appear under phase="training" with
-      finger_phase="main_addition", which analysts can filter on.
-    - This mechanism mirrors how children may first use external
-      counting strategies and later internalize them.
+    - This lazy evaluation ensures that finger counting is only used when
+      necessary, making results more consistent and efficient.
+    - Logs distinguish fallback steps via finger_phase="main_addition".
+    - This mirrors developmental scaffolding: external counting strategies
+      are invoked only when the model’s own confidence is insufficient.
     """
 
     def learn_addition_with_finger_counting(
         self, addend1: int, addend2: int,
         log_fn=None, phase: str = "training",
     ) -> float:
-        """Learn addition using finger counting before training on the result."""
-        finger_result, _, _ = self.predict_with_finger_counting(
-            addend1, "+", addend2, log_fn, phase
-        )
+        """Learn addition using finger counting only if confidence is low."""
+        # 1) Try retrieval first
+        pred_val, conf, use_fingers = self.predict(addend1, "+", addend2)
+
+        # 2) If low confidence, compute finger counting; else use ground truth
+        if use_fingers and self.finger_counter is not None:
+            target = self.finger_counter.finger_add(addend1, addend2)
+            finger_phase = "main_addition"   # lets the logger mark used_finger_counting=True
+        else:
+            target = addend1 + addend2       # ground truth
+            finger_phase = ""                 # used_finger_counting=False
+
+        # 3) Train on the chosen target
         return self.learn_single(
-            addend1, "+", addend2, finger_result,
-            log_fn=log_fn, phase=phase, finger_phase="main_addition",
+            addend1, "+", addend2, target,
+            log_fn=log_fn, phase=phase, finger_phase=finger_phase,
         )
 
     """

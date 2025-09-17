@@ -1,3 +1,19 @@
+0. conda activate test
+
+1. Be in the top specific experiment dir (e.g., ssm/experiments/thisexperiment/) and do
+
+2. Adjust your params.json for all but the one you're gonna sweep.
+
+3. ../../repo/tools/sweeper.sh -a 0.6 -s 0.025 -b 0.8 -l confidence_floor
+
+../../repo/tools/sweep_config.sh -t fast_15k_with_split_rates.json -p confidence_floor -a 0.6 -s 0.025 -b 0.8 -o results --python "python3" --train ../../repo/model/train.py
+
+python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param confidence_floor --op "add" --allow-truncate
+
+python3 ../../repo/tools/plot_sweep.py results/confidence_floor_add_correctness2000.tsv --label "confidence_floor x Sweep Correctness 2000" --out confidence_floor_add_correctness2000.png
+
+python3 ../../repo/tools/plot_finger_counting.py --sweep-dir results --param confidence_floor --window 2000 --out confidence_floor_add_finger_counting.png
+
 # You should have a folder called "experiments" at the same level as
   the smm repo. I have both of these under .../smm which is where
   we're going to start.
@@ -12,7 +28,6 @@ experiments	repo
   is cd into that folder:
 
 (test) jeffshrager@MacBook-Pro-6 smm % cd experiments/20250900_DemoExperiment/
-cd experiments/20250900_DemoExperiment/
 
 # (test) By the way, is just my conda env that I used to do all
   this. Not the greatest name! :-) Anyway, I had previous activated
@@ -63,7 +78,7 @@ Run complete: 20250911085642
   algorithm was left in sweep_reduce last. (FFF Should have these
   named and arg-selected.)
 
-(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --op "+" --allow-truncate
+(test) jeffshrager@MacBook-Pro-6 20250900_DemoExperiment % python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param learning_rate --allow-truncate
 
 [ok] Wrote results/learning_rate_correctness2000.tsv
 [info] Columns: 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.014, 0.015

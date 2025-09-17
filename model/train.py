@@ -230,17 +230,25 @@ def train_loop(cfg):
     """
 
     def _log_cb(to_log_dict):
-        
-        # RR: Changed how arguments are received
+        # --- NEW: silence finger-counting substeps ---
+        # Only keep the single "main" row when finger counting is actually used.
+        if to_log_dict.get("phase") == "finger_counting" and to_log_dict.get("finger_phase") != "main_addition":
+            return
+        # --------------------------------------------
+
         log_keys = ["addend1", "operator", "addend2", 
                     "target", "predicted", "prob_dist",
                     "loss", "phase", "finger_phase"]
 
         a1, op, a2, target, predicted, probs, loss, phase, finger_phase = [to_log_dict[key] for key in log_keys]
-        # print("log_cb", a1, op, a2, target, predicted, probs, loss, phase, finger_phase)
+
         conf = calculate_confidence(probs, smm.output_size)
         step = getattr(smm, "step", 0)
-        used_fc = (phase == "finger_counting") or bool(finger_phase)
+
+        # --- CHANGED: mark used_finger_counting only on the single main row ---
+        used_fc = (finger_phase == "main_addition")
+        # ---------------------------------------------------------------------
+
         log_step(
             ftsv, smm,
             phase=phase, step=step,
@@ -248,24 +256,8 @@ def train_loop(cfg):
             target=target, predicted=predicted,
             confidence=conf, used_finger_counting=used_fc,
             loss=loss,
-            probs = probs, finger_phase = finger_phase # RR
+            probs=probs, finger_phase=finger_phase
         )
-
-    # ____________ OLD ______________
-    # def _log_cb(*args, **kw):
-    #     a1, op, a2, target, predicted, probs, loss, phase, finger_phase = args
-    #     print(len(args))
-    #     conf = calculate_confidence(probs, smm.output_size)
-    #     step = getattr(smm, "step", 0)
-    #     used_fc = (phase == "finger_counting") or bool(finger_phase)
-    #     log_step(
-    #         ftsv, smm,
-    #         phase=phase, step=step,
-    #         a1=a1, op=op, a2=a2,
-    #         target=target, predicted=predicted,
-    #         confidence=conf, used_finger_counting=used_fc,
-    #         loss=loss
-    #     )
 
     fc = FingerCounter(smm, log_step_cb=_log_cb)
     smm.finger_counter = fc

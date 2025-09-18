@@ -1,3 +1,5 @@
+*** Basic sweeping:
+
 0. conda activate test
 
 1. Be in the top specific experiment dir (e.g., ssm/experiments/thisexperiment/) and do
@@ -6,6 +8,8 @@
 
 3. ../../repo/tools/sweeper.sh -a 0.6 -s 0.025 -b 0.8 -l confidence_floor
 
+That will do all this:
+
 ../../repo/tools/sweep_config.sh -t fast_15k_with_split_rates.json -p confidence_floor -a 0.6 -s 0.025 -b 0.8 -o results --python "python3" --train ../../repo/model/train.py
 
 python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param confidence_floor --op "add" --allow-truncate
@@ -13,6 +17,10 @@ python3 ../../repo/tools/sweep_reduce.py --sweep-dir results --param confidence_
 python3 ../../repo/tools/plot_sweep.py results/confidence_floor_add_correctness2000.tsv --label "confidence_floor x Sweep Correctness 2000" --out confidence_floor_add_correctness2000.png
 
 python3 ../../repo/tools/plot_finger_counting.py --sweep-dir results --param confidence_floor --window 2000 --out confidence_floor_add_finger_counting.png
+
+*** To get a plot of count correctness from already existing run:
+
+../../repo/tools/sweeper.sh --norerun -l addition_start_step -O "count" -w 2000
 
 # You should have a folder called "experiments" at the same level as
   the smm repo. I have both of these under .../smm which is where

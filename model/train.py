@@ -315,12 +315,24 @@ def train_loop(cfg):
       and the run_id (timestamp string) is returned to the caller.
     """
 
+    # Uniform counting target sampler
+    def _sample_uniform_count_target(output_size: int):
+        """Pick target uniformly from {2..output_size} and back-solve a1 = target-1."""
+        t = np.random.randint(2, output_size + 1)
+        a1 = t - 1
+        return a1, t
+
     start = time.time()
     for step in range(getattr(smm, "step", 0), int(cur.total_steps)):
         prob, t, cf_mean, cx, w = cur.select_problem(step, counting, addition)
         if prob is None:
             continue
         (a1, op, a2), target, _ = prob
+
+        # make counting targets uniform (2..output_size)
+        if op == '->':
+            a1, target = _sample_uniform_count_target(smm.output_size)
+            a2 = None
 
         if op == '+':
             loss = smm.learn_addition_with_finger_counting(

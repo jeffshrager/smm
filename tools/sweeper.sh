@@ -21,7 +21,7 @@ OP="add"            # reduce operator: e.g., "add", "count", "->", etc.
 WINDOW="2000"       # window size for correctness / finger counting
 
 # Files & tools
-TEMPLATE="fast_15k_with_split_rates.json"
+TEMPLATE="params.json"
 RESULTS_DIR="results"
 PYTHON="python3"
 TRAIN="../../repo/model/train.py"
